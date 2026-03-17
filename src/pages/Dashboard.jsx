@@ -1,7 +1,9 @@
 import React from 'react';
 import { Briefcase, TrendingUp, AlertCircle, Calendar, ArrowUpRight } from 'lucide-react';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, AreaChart, Area } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { exportWeeklyReport } from '../utils/excelExport';
+
+const SECTOR_COLORS = ['#3b82f6', '#f97316', '#22c55e', '#a855f7', '#06b6d4', '#ef4444', '#eab308'];
 
 function MetricCard({ title, value, subtitle, icon: Icon, color, isDark, delay = 0 }) {
   return (
@@ -31,13 +33,23 @@ export default function Dashboard({ prospects, meetings, stats, isDark, onViewPr
     { range: '90-100', count: prospects.filter(p => p.score >= 90).length, fill: '#22c55e' },
   ];
 
-  const sectorData = Object.entries(
-    prospects.reduce((acc, p) => {
-      const s = p.sector.split('(')[0].trim();
-      acc[s] = (acc[s] || 0) + 1;
-      return acc;
-    }, {})
-  ).map(([name, count]) => ({ name: name.length > 15 ? name.substring(0, 15) + '…' : name, count }));
+  // Sector data for pie chart — top sectors only, rest grouped as "Otros"
+  const sectorCounts = prospects.reduce((acc, p) => {
+    const s = p.sector.split('(')[0].trim();
+    acc[s] = (acc[s] || 0) + 1;
+    return acc;
+  }, {});
+  const sortedSectors = Object.entries(sectorCounts).sort((a, b) => b[1] - a[1]);
+  const topSectors = sortedSectors.slice(0, 5);
+  const otherCount = sortedSectors.slice(5).reduce((sum, [, c]) => sum + c, 0);
+  const sectorPieData = [
+    ...topSectors.map(([name, value], i) => ({
+      name: name.length > 18 ? name.substring(0, 18) + '…' : name,
+      value,
+      color: SECTOR_COLORS[i]
+    })),
+    ...(otherCount > 0 ? [{ name: 'Otros', value: otherCount, color: '#52525b' }] : [])
+  ];
 
   const upcomingMeetings = meetings
     .filter(m => new Date(m.date) >= new Date())
@@ -74,21 +86,27 @@ export default function Dashboard({ prospects, meetings, stats, isDark, onViewPr
           </ResponsiveContainer>
         </div>
 
-        {/* Sectors */}
+        {/* Sectors — Pie Chart (top sectors only) */}
         <div className={`col-span-1 p-6 rounded-2xl border animate-fade-in ${isDark ? 'bg-[#18181b] border-zinc-800/80' : 'bg-white border-gray-100 shadow-sm'}`} style={{ animationDelay: '250ms' }}>
-          <h2 className="text-sm font-semibold mb-4">Sectores</h2>
-          <div className="space-y-3">
-            {sectorData.map((s, i) => (
-              <div key={i}>
-                <div className="flex justify-between text-xs mb-1">
-                  <span className={isDark ? 'text-zinc-400' : 'text-gray-600'}>{s.name}</span>
-                  <span className="font-medium">{s.count}</span>
+          <h2 className="text-sm font-semibold mb-2">Top Sectores</h2>
+          <div className="flex items-center gap-4">
+            <ResponsiveContainer width={140} height={140}>
+              <PieChart>
+                <Pie data={sectorPieData} cx="50%" cy="50%" innerRadius={35} outerRadius={60} paddingAngle={3} dataKey="value" stroke="none">
+                  {sectorPieData.map((entry, i) => <Cell key={i} fill={entry.color} />)}
+                </Pie>
+                <Tooltip contentStyle={{ background: isDark ? '#18181b' : '#fff', border: `1px solid ${isDark ? '#27272a' : '#e5e7eb'}`, borderRadius: 12, fontSize: 12 }} />
+              </PieChart>
+            </ResponsiveContainer>
+            <div className="space-y-1.5 flex-1 min-w-0">
+              {sectorPieData.map((s, i) => (
+                <div key={i} className="flex items-center gap-2 text-xs">
+                  <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: s.color }} />
+                  <span className={`truncate flex-1 ${isDark ? 'text-zinc-400' : 'text-gray-600'}`}>{s.name}</span>
+                  <span className="font-semibold flex-shrink-0">{s.value}</span>
                 </div>
-                <div className={`w-full h-1.5 rounded-full ${isDark ? 'bg-zinc-800' : 'bg-gray-200'}`}>
-                  <div className="h-full bg-gradient-to-r from-blue-500 to-cyan-400 rounded-full transition-all duration-700" style={{ width: `${(s.count / (stats.total || 1)) * 100}%` }} />
-                </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         </div>
 
@@ -118,7 +136,6 @@ export default function Dashboard({ prospects, meetings, stats, isDark, onViewPr
       <div className={`p-6 rounded-2xl border animate-fade-in ${isDark ? 'bg-[#18181b] border-zinc-800/80' : 'bg-white border-gray-100 shadow-sm'}`} style={{ animationDelay: '350ms' }}>
         <div className="flex justify-between items-center mb-5">
           <h2 className="text-sm font-semibold">Top Urgentes</h2>
-          <button onClick={() => {}} className="text-xs text-blue-500 hover:underline">Ver todos →</button>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {urgents.map((p, i) => (
