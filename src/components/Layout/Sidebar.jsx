@@ -31,8 +31,8 @@ export default function Sidebar({ activeTab, onTabChange, isDark, onToggleTheme,
       <div>
         {/* Logo */}
         <div className={`p-6 flex items-center ${collapsed ? 'justify-center' : 'gap-3'}`}>
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-500 to-orange-500 flex items-center justify-center text-white font-bold text-lg flex-shrink-0 shadow-lg shadow-blue-500/20">
-            N
+          <div className="w-9 h-9 rounded-xl bg-[#0f1c2e] flex items-center justify-center flex-shrink-0 shadow-lg shadow-blue-500/20 overflow-hidden p-1.5">
+            <img src="/nemaris-logo.png" alt="Nemaris" className="w-full h-full object-contain" />
           </div>
           {!collapsed && (
             <div>
