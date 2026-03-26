@@ -61,11 +61,14 @@ async function tryGroq(text, dateStr) {
   const apiKey = import.meta.env.VITE_GROQ_API_KEY;
   if (!apiKey) return null;
 
-  const maxRetries = 3;
+  const maxRetries = 2;
   for (let attempt = 0; attempt < maxRetries; attempt++) {
     try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 60000);
       const response = await fetch(GROQ_API_URL, {
         method: 'POST',
+        signal: controller.signal,
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${apiKey}`,
@@ -81,17 +84,16 @@ async function tryGroq(text, dateStr) {
           response_format: { type: 'json_object' }
         }),
       });
+      clearTimeout(timeout);
       
       if (response.status === 429) {
-        const retryAfter = response.headers.get('retry-after');
-        const waitSecs = retryAfter ? parseInt(retryAfter) : (attempt + 1) * 15;
+        const waitSecs = (attempt + 1) * 10;
         console.warn(`Groq rate limited (429). Attempt ${attempt + 1}/${maxRetries}. Waiting ${waitSecs}s...`);
         if (attempt < maxRetries - 1) {
           await delay(waitSecs * 1000);
           continue;
         }
-        // Last attempt failed with 429, fall through to return null
-        console.warn('Groq rate limit exceeded after all retries, falling back to OpenRouter');
+        console.warn('Groq rate limit exceeded, falling back to OpenRouter');
         return null;
       }
 
@@ -104,9 +106,9 @@ async function tryGroq(text, dateStr) {
       const content = data.choices[0].message.content;
       return processAIResponse(content, dateStr, 'Groq');
     } catch (e) {
-      console.warn(`Groq API attempt ${attempt + 1} failed:`, e);
+      console.warn(`Groq API attempt ${attempt + 1} failed:`, e.name === 'AbortError' ? 'Timeout after 60s' : e);
       if (attempt === maxRetries - 1) return null;
-      await delay((attempt + 1) * 5000);
+      await delay(5000);
     }
   }
   return null;
@@ -129,8 +131,11 @@ async function tryOpenRouter(text, dateStr) {
   for (const model of models) {
     try {
       console.log(`Trying OpenRouter with model: ${model}`);
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 90000); // 90s timeout
       const response = await fetch(OPENROUTER_API_URL, {
         method: 'POST',
+        signal: controller.signal,
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${apiKey}`,
@@ -147,6 +152,7 @@ async function tryOpenRouter(text, dateStr) {
           max_tokens: 8000,
         }),
       });
+      clearTimeout(timeout);
       
       if (!response.ok) {
         const errText = await response.text().catch(() => '');
@@ -159,10 +165,11 @@ async function tryOpenRouter(text, dateStr) {
         console.warn(`OpenRouter empty response (${model})`);
         continue;
       }
+      console.log(`OpenRouter success with model: ${model}`);
       const content = data.choices[0].message.content;
       return processAIResponse(content, dateStr, 'OpenRouter');
     } catch (e) {
-      console.warn(`OpenRouter failed (${model}):`, e);
+      console.warn(`OpenRouter failed (${model}):`, e.name === 'AbortError' ? 'Timeout after 90s' : e);
       continue;
     }
   }
