@@ -287,8 +287,9 @@ export default function Meetings({ meetings, isDark, onAdd, onUpdate, onDelete, 
 function BriefLink({ storageId, isDark }) {
   const url = useQuery(api.meetings.getFileUrl, { storageId });
   if (!url) return null;
+  const viewerUrl = `https://docs.google.com/gview?url=${encodeURIComponent(url)}&embedded=false`;
   return (
-    <a href={url} target="_blank" rel="noreferrer"
+    <a href={viewerUrl} target="_blank" rel="noreferrer"
       className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors border ${
         isDark ? 'border-orange-500/30 text-orange-400 hover:bg-orange-500/10' : 'border-orange-200 text-orange-600 hover:bg-orange-50'
       }`}
