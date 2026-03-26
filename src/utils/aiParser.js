@@ -31,14 +31,15 @@ IMPORTANTE:
 Responde ÚNICAMENTE con el array JSON, sin ningún otro texto.`;
 
 /**
- * Parse prospects from text using Groq API
+ * Parse prospects from text using Groq API with OpenRouter fallback
  */
 export async function parseProspectsWithAI(text, reportDate = null) {
   const dateStr = reportDate || new Date().toISOString().split('T')[0];
   
-  // Try Groq first, then fallback to OpenRouter
+  // Try Groq first (with retry on 429), then fallback to OpenRouter
   let result = await tryGroq(text, dateStr);
   if (!result) {
+    console.log('Groq failed or unavailable, trying OpenRouter...');
     result = await tryOpenRouter(text, dateStr);
   }
   
@@ -49,79 +50,123 @@ export async function parseProspectsWithAI(text, reportDate = null) {
   return result;
 }
 
+/**
+ * Delay helper
+ */
+function delay(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
 async function tryGroq(text, dateStr) {
-  try {
-    const apiKey = import.meta.env.VITE_GROQ_API_KEY;
-    if (!apiKey) return null;
-    
-    const response = await fetch(GROQ_API_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: 'llama-3.3-70b-versatile',
-        messages: [
-          { role: 'system', content: EXTRACTION_PROMPT },
-          { role: 'user', content: `Fecha del reporte: ${dateStr}\n\nTexto del informe:\n${text.substring(0, 28000)}` }
-        ],
-        temperature: 0.1,
-        max_tokens: 8000,
-        response_format: { type: 'json_object' }
-      }),
-    });
-    
-    if (!response.ok) {
-      console.warn('Groq API error:', response.status);
-      return null;
+  const apiKey = import.meta.env.VITE_GROQ_API_KEY;
+  if (!apiKey) return null;
+
+  const maxRetries = 3;
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      const response = await fetch(GROQ_API_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model: 'llama-3.3-70b-versatile',
+          messages: [
+            { role: 'system', content: EXTRACTION_PROMPT },
+            { role: 'user', content: `Fecha del reporte: ${dateStr}\n\nTexto del informe:\n${text.substring(0, 28000)}` }
+          ],
+          temperature: 0.1,
+          max_tokens: 8000,
+          response_format: { type: 'json_object' }
+        }),
+      });
+      
+      if (response.status === 429) {
+        const retryAfter = response.headers.get('retry-after');
+        const waitSecs = retryAfter ? parseInt(retryAfter) : (attempt + 1) * 15;
+        console.warn(`Groq rate limited (429). Attempt ${attempt + 1}/${maxRetries}. Waiting ${waitSecs}s...`);
+        if (attempt < maxRetries - 1) {
+          await delay(waitSecs * 1000);
+          continue;
+        }
+        // Last attempt failed with 429, fall through to return null
+        console.warn('Groq rate limit exceeded after all retries, falling back to OpenRouter');
+        return null;
+      }
+
+      if (!response.ok) {
+        console.warn('Groq API error:', response.status);
+        return null;
+      }
+      
+      const data = await response.json();
+      const content = data.choices[0].message.content;
+      return processAIResponse(content, dateStr, 'Groq');
+    } catch (e) {
+      console.warn(`Groq API attempt ${attempt + 1} failed:`, e);
+      if (attempt === maxRetries - 1) return null;
+      await delay((attempt + 1) * 5000);
     }
-    
-    const data = await response.json();
-    const content = data.choices[0].message.content;
-    return processAIResponse(content, dateStr, 'Groq');
-  } catch (e) {
-    console.warn('Groq API failed:', e);
-    return null;
   }
+  return null;
 }
 
 async function tryOpenRouter(text, dateStr) {
-  try {
-    const apiKey = import.meta.env.VITE_OPENROUTER_API_KEY;
-    if (!apiKey) return null;
-    
-    const response = await fetch(OPENROUTER_API_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`,
-        'HTTP-Referer': window.location.origin,
-        'X-Title': 'Nemaris Dashboard',
-      },
-      body: JSON.stringify({
-        model: 'meta-llama/llama-3.3-70b-instruct',
-        messages: [
-          { role: 'system', content: EXTRACTION_PROMPT },
-          { role: 'user', content: `Fecha del reporte: ${dateStr}\n\nTexto del informe:\n${text.substring(0, 28000)}` }
-        ],
-        temperature: 0.1,
-        max_tokens: 8000,
-      }),
-    });
-    
-    if (!response.ok) {
-      console.warn('OpenRouter API error:', response.status);
-      return null;
-    }
-    
-    const data = await response.json();
-    const content = data.choices[0].message.content;
-    return processAIResponse(content, dateStr, 'OpenRouter');
-  } catch (e) {
-    console.warn('OpenRouter API failed:', e);
+  const apiKey = import.meta.env.VITE_OPENROUTER_API_KEY;
+  if (!apiKey) {
+    console.warn('No OpenRouter API key found');
     return null;
   }
+
+  // Try multiple models in case one fails
+  const models = [
+    'meta-llama/llama-3.3-70b-instruct',
+    'meta-llama/llama-3.1-70b-instruct',
+    'google/gemini-2.0-flash-001',
+  ];
+
+  for (const model of models) {
+    try {
+      console.log(`Trying OpenRouter with model: ${model}`);
+      const response = await fetch(OPENROUTER_API_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`,
+          'HTTP-Referer': window.location.origin,
+          'X-Title': 'Nemaris Dashboard',
+        },
+        body: JSON.stringify({
+          model,
+          messages: [
+            { role: 'system', content: EXTRACTION_PROMPT },
+            { role: 'user', content: `Fecha del reporte: ${dateStr}\n\nTexto del informe:\n${text.substring(0, 28000)}` }
+          ],
+          temperature: 0.1,
+          max_tokens: 8000,
+        }),
+      });
+      
+      if (!response.ok) {
+        const errText = await response.text().catch(() => '');
+        console.warn(`OpenRouter error (${model}):`, response.status, errText);
+        continue; // Try next model
+      }
+      
+      const data = await response.json();
+      if (!data.choices?.[0]?.message?.content) {
+        console.warn(`OpenRouter empty response (${model})`);
+        continue;
+      }
+      const content = data.choices[0].message.content;
+      return processAIResponse(content, dateStr, 'OpenRouter');
+    } catch (e) {
+      console.warn(`OpenRouter failed (${model}):`, e);
+      continue;
+    }
+  }
+  return null;
 }
 
 function processAIResponse(content, dateStr, source) {
