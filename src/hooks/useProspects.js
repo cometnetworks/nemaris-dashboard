@@ -1,33 +1,69 @@
-import { useState, useEffect } from 'react';
-import { loadData, saveData, mergeProspects } from '../utils/dataStore';
-import { initialProspects, initialReportHistory } from '../data/initialData';
+import { useQuery, useMutation } from 'convex/react';
+import { api } from '../../convex/_generated/api';
 
 export function useProspects() {
-  const [prospects, setProspects] = useState(() => {
-    return loadData('PROSPECTS') || initialProspects;
-  });
+  const convexProspects = useQuery(api.prospects.list) ?? [];
+  const convexReports = useQuery(api.reports.list) ?? [];
+  const upsertMany = useMutation(api.prospects.upsertMany);
+  const updateProspect = useMutation(api.prospects.update);
+  const addReport = useMutation(api.reports.add);
 
-  const [reportHistory, setReportHistory] = useState(() => {
-    return loadData('REPORTS') || initialReportHistory;
-  });
+  // Map Convex docs to the shape the app expects (use _id as id, keep prospectId)
+  const prospects = convexProspects.map(p => ({
+    ...p,
+    id: p.prospectId,
+  }));
 
-  useEffect(() => {
-    saveData('PROSPECTS', prospects);
-  }, [prospects]);
+  const reportHistory = convexReports
+    .map(r => ({
+      ...r,
+      id: r.reportId,
+    }))
+    .sort((a, b) => new Date(b.date) - new Date(a.date));
 
-  useEffect(() => {
-    saveData('REPORTS', reportHistory);
-  }, [reportHistory]);
+  const addProspects = async (newProspects, reportInfo) => {
+    // Map incoming prospects to the Convex schema shape
+    const mapped = newProspects.map(p => ({
+      prospectId: p.id || p.prospectId || `prospect-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      company: p.company || 'Desconocido',
+      sector: p.sector || 'No especificado',
+      location: p.location || 'No especificado',
+      priority: p.priority || 'Media',
+      score: typeof p.score === 'number' ? p.score : 75,
+      trigger: p.trigger || '',
+      needs: Array.isArray(p.needs) ? p.needs : [],
+      projectStatus: p.projectStatus || '',
+      deciders: p.deciders || '',
+      linkedinLinks: Array.isArray(p.linkedinLinks) ? p.linkedinLinks : [],
+      emailSubject: p.emailSubject || '',
+      emailBody: p.emailBody || '',
+      followUpEmail: p.followUpEmail || '',
+      ctaSugerido: p.ctaSugerido || '',
+      discoveryNote: p.discoveryNote || '',
+      reportDate: p.reportDate || new Date().toISOString().split('T')[0],
+      reportSource: p.reportSource || 'Unknown',
+    }));
 
-  const addProspects = (newProspects, reportInfo) => {
-    setProspects(prev => mergeProspects(prev, newProspects));
+    await upsertMany({ prospects: mapped });
+
     if (reportInfo) {
-      setReportHistory(prev => [reportInfo, ...prev]);
+      await addReport({
+        reportId: reportInfo.id || `report-${Date.now()}`,
+        filename: reportInfo.filename || 'unknown.pdf',
+        date: reportInfo.date || new Date().toISOString().split('T')[0],
+        prospectsExtracted: reportInfo.prospectsExtracted || newProspects.length,
+        source: reportInfo.source || 'Unknown',
+        status: reportInfo.status || 'processed',
+      });
     }
   };
 
-  const updateProspect = (id, updates) => {
-    setProspects(prev => prev.map(p => p.id === id ? { ...p, ...updates } : p));
+  const handleUpdateProspect = async (id, updates) => {
+    // Find the Convex doc _id from the prospectId
+    const doc = convexProspects.find(p => p.prospectId === id);
+    if (doc) {
+      await updateProspect({ id: doc._id, updates });
+    }
   };
 
   const stats = {
@@ -37,5 +73,5 @@ export function useProspects() {
     sectors: [...new Set(prospects.map(p => p.sector))].length,
   };
 
-  return { prospects, addProspects, updateProspect, reportHistory, stats };
+  return { prospects, addProspects, updateProspect: handleUpdateProspect, reportHistory, stats };
 }

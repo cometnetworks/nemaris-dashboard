@@ -1,27 +1,50 @@
-import { useState, useEffect } from 'react';
-import { loadData, saveData } from '../utils/dataStore';
-import { initialMeetings } from '../data/initialData';
+import { useQuery, useMutation } from 'convex/react';
+import { api } from '../../convex/_generated/api';
 
 export function useMeetings() {
-  const [meetings, setMeetings] = useState(() => {
-    return loadData('MEETINGS') || initialMeetings;
-  });
+  const convexMeetings = useQuery(api.meetings.list) ?? [];
+  const addMeetingMut = useMutation(api.meetings.add);
+  const updateMeetingMut = useMutation(api.meetings.update);
+  const removeMeetingMut = useMutation(api.meetings.remove);
+  const generateUploadUrl = useMutation(api.meetings.generateUploadUrl);
 
-  useEffect(() => {
-    saveData('MEETINGS', meetings);
-  }, [meetings]);
+  // Map Convex docs to the shape the app expects
+  const meetings = convexMeetings.map(m => ({
+    ...m,
+    id: m._id,
+  }));
 
-  const addMeeting = (meeting) => {
-    setMeetings(prev => [...prev, { ...meeting, id: `meeting-${Date.now()}` }]);
+  const addMeeting = async (meeting) => {
+    await addMeetingMut({
+      company: meeting.company,
+      date: meeting.date,
+      link: meeting.link,
+      notes: meeting.notes || '',
+      status: meeting.status || 'por_realizar',
+      ...(meeting.briefPdfId ? { briefPdfId: meeting.briefPdfId } : {}),
+    });
   };
 
-  const updateMeeting = (id, updates) => {
-    setMeetings(prev => prev.map(m => m.id === id ? { ...m, ...updates } : m));
+  const updateMeeting = async (id, updates) => {
+    await updateMeetingMut({ id, updates });
   };
 
-  const deleteMeeting = (id) => {
-    setMeetings(prev => prev.filter(m => m.id !== id));
+  const deleteMeeting = async (id) => {
+    await removeMeetingMut({ id });
   };
 
-  return { meetings, addMeeting, updateMeeting, deleteMeeting };
+  const uploadBriefPdf = async (file) => {
+    // Step 1: Get a short-lived upload URL
+    const postUrl = await generateUploadUrl();
+    // Step 2: POST the file to the URL
+    const result = await fetch(postUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': file.type },
+      body: file,
+    });
+    const { storageId } = await result.json();
+    return storageId;
+  };
+
+  return { meetings, addMeeting, updateMeeting, deleteMeeting, uploadBriefPdf };
 }

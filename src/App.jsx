@@ -16,7 +16,7 @@ import Reports from './pages/Reports';
 export default function App() {
   const { theme, toggleTheme } = useTheme();
   const { prospects, addProspects, updateProspect, reportHistory, stats } = useProspects();
-  const { meetings, addMeeting, updateMeeting, deleteMeeting } = useMeetings();
+  const { meetings, addMeeting, updateMeeting, deleteMeeting, uploadBriefPdf } = useMeetings();
   const [activeTab, setActiveTab] = useState('dashboard');
   const [selectedProspect, setSelectedProspect] = useState(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -46,7 +46,7 @@ export default function App() {
       case 'opportunities':
         return <Opportunities prospects={prospects} meetings={meetings} isDark={isDark} onSelect={goToProspect} />;
       case 'meetings':
-        return <Meetings meetings={meetings} isDark={isDark} onAdd={addMeeting} onUpdate={updateMeeting} onDelete={deleteMeeting} />;
+        return <Meetings meetings={meetings} isDark={isDark} onAdd={addMeeting} onUpdate={updateMeeting} onDelete={deleteMeeting} uploadBriefPdf={uploadBriefPdf} />;
       case 'reports':
         return <Reports isDark={isDark} reportHistory={reportHistory} onDataExtracted={addProspects} />;
       default:

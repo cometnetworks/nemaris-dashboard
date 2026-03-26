@@ -1,5 +1,7 @@
-import React, { useState } from 'react';
-import { Calendar, Plus, ExternalLink, Trash2, Clock, CheckCircle, RefreshCw, XCircle, ArrowRight, Star } from 'lucide-react';
+import React, { useState, useRef } from 'react';
+import { useQuery } from 'convex/react';
+import { api } from '../../convex/_generated/api';
+import { Calendar, Plus, ExternalLink, Trash2, Clock, CheckCircle, RefreshCw, XCircle, ArrowRight, Star, FileText, Upload } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 const MEETING_STATUSES = {
@@ -12,21 +14,63 @@ const MEETING_STATUSES = {
   no_calificada: { label: 'No Calificada', color: 'bg-zinc-500/10 text-zinc-400 border-zinc-500/20', icon: XCircle, dot: 'bg-zinc-500' },
 };
 
-export default function Meetings({ meetings, isDark, onAdd, onUpdate, onDelete }) {
+export default function Meetings({ meetings, isDark, onAdd, onUpdate, onDelete, uploadBriefPdf }) {
   const [newCompany, setNewCompany] = useState('');
   const [newDate, setNewDate] = useState('');
   const [newLink, setNewLink] = useState('');
   const [newNotes, setNewNotes] = useState('');
+  const [briefFile, setBriefFile] = useState(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const fileInputRef = useRef(null);
 
-  const handleAdd = (e) => {
+  const handleAdd = async (e) => {
     e.preventDefault();
     if (!newCompany || !newDate || !newLink) {
       toast.error('Completa empresa, fecha y enlace');
       return;
     }
-    onAdd({ company: newCompany, date: newDate, link: newLink, notes: newNotes, status: 'por_realizar' });
-    setNewCompany(''); setNewDate(''); setNewLink(''); setNewNotes('');
-    toast.success('Reunión programada');
+    setIsSubmitting(true);
+    try {
+      let briefPdfId = undefined;
+      if (briefFile && uploadBriefPdf) {
+        briefPdfId = await uploadBriefPdf(briefFile);
+      }
+      await onAdd({
+        company: newCompany,
+        date: newDate,
+        link: newLink,
+        notes: newNotes,
+        status: 'por_realizar',
+        ...(briefPdfId ? { briefPdfId } : {}),
+      });
+      setNewCompany(''); setNewDate(''); setNewLink(''); setNewNotes('');
+      setBriefFile(null);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      toast.success('Reunión programada');
+    } catch (err) {
+      console.error(err);
+      toast.error('Error al crear la reunión');
+    }
+    setIsSubmitting(false);
+  };
+
+  const handleAttachBrief = async (meetingId) => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.pdf';
+    input.onchange = async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      try {
+        const storageId = await uploadBriefPdf(file);
+        await onUpdate(meetingId, { briefPdfId: storageId });
+        toast.success('Brief PDF adjuntado');
+      } catch (err) {
+        console.error(err);
+        toast.error('Error al subir el PDF');
+      }
+    };
+    input.click();
   };
 
   const changeStatus = (id, newStatus) => {
@@ -49,6 +93,21 @@ export default function Meetings({ meetings, isDark, onAdd, onUpdate, onDelete }
   const inputClass = `w-full px-4 py-2.5 rounded-xl border text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
     isDark ? 'bg-zinc-900 border-zinc-800 text-white placeholder-zinc-500' : 'bg-white border-gray-300 text-gray-900 placeholder-gray-400'
   }`;
+
+  const BriefButton = ({ meeting }) => {
+    if (!meeting.briefPdfId) {
+      return (
+        <button onClick={() => handleAttachBrief(meeting.id)}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors border ${
+            isDark ? 'border-zinc-700 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-300' : 'border-gray-200 text-gray-500 hover:bg-gray-100'
+          }`}
+        >
+          <Upload size={12} /> Adjuntar Brief
+        </button>
+      );
+    }
+    return <BriefLink storageId={meeting.briefPdfId} isDark={isDark} />;
+  };
 
   const MeetingCard = ({ m, showActions = true }) => {
     const statusInfo = MEETING_STATUSES[m.status || 'por_realizar'] || MEETING_STATUSES.por_realizar;
@@ -81,6 +140,7 @@ export default function Meetings({ meetings, isDark, onAdd, onUpdate, onDelete }
                 <ExternalLink size={12} /> Meet
               </a>
             )}
+            <BriefButton meeting={m} />
             <button onClick={() => { onDelete(m.id); toast.success('Reunión eliminada'); }}
               className={`p-1.5 rounded-lg transition-colors ${isDark ? 'hover:bg-zinc-800 text-zinc-600 hover:text-red-400' : 'hover:bg-gray-200 text-gray-400 hover:text-red-500'}`}
             >
@@ -151,8 +211,32 @@ export default function Meetings({ meetings, isDark, onAdd, onUpdate, onDelete }
               <input type="text" value={newNotes} onChange={e => setNewNotes(e.target.value)} className={inputClass} placeholder="Ej. Discovery call, revisar landscape" />
             </div>
           </div>
-          <button type="submit" className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-medium transition-colors flex items-center gap-2 shadow-lg shadow-blue-500/20">
-            <Plus size={16} /> Agregar Reunión
+          {/* PDF Brief upload */}
+          <div>
+            <label className={`block text-xs mb-1.5 font-medium ${isDark ? 'text-zinc-400' : 'text-gray-600'}`}>Brief PDF (opcional)</label>
+            <div className="flex items-center gap-3">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".pdf"
+                onChange={(e) => setBriefFile(e.target.files[0] || null)}
+                className={`flex-1 text-sm file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-medium file:cursor-pointer ${
+                  isDark
+                    ? 'text-zinc-400 file:bg-zinc-800 file:text-zinc-300 hover:file:bg-zinc-700'
+                    : 'text-gray-500 file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200'
+                }`}
+              />
+              {briefFile && (
+                <span className={`text-xs flex items-center gap-1 ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`}>
+                  <FileText size={14} /> {briefFile.name}
+                </span>
+              )}
+            </div>
+          </div>
+          <button type="submit" disabled={isSubmitting}
+            className={`px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-medium transition-colors flex items-center gap-2 shadow-lg shadow-blue-500/20 ${isSubmitting ? 'opacity-50 cursor-not-allowed' : ''}`}
+          >
+            <Plus size={16} /> {isSubmitting ? 'Guardando...' : 'Agregar Reunión'}
           </button>
         </form>
       </div>
@@ -197,6 +281,20 @@ export default function Meetings({ meetings, isDark, onAdd, onUpdate, onDelete }
         </div>
       )}
     </div>
+  );
+}
+
+function BriefLink({ storageId, isDark }) {
+  const url = useQuery(api.meetings.getFileUrl, { storageId });
+  if (!url) return null;
+  return (
+    <a href={url} target="_blank" rel="noreferrer"
+      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors border ${
+        isDark ? 'border-orange-500/30 text-orange-400 hover:bg-orange-500/10' : 'border-orange-200 text-orange-600 hover:bg-orange-50'
+      }`}
+    >
+      <FileText size={12} /> Ver Brief
+    </a>
   );
 }
 
