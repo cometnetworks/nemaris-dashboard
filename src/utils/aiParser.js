@@ -35,16 +35,19 @@ Responde ÚNICAMENTE con el array JSON, sin ningún otro texto.`;
  */
 export async function parseProspectsWithAI(text, reportDate = null) {
   const dateStr = reportDate || new Date().toISOString().split('T')[0];
+  const errors = [];
   
   // Try Groq first (with retry on 429), then fallback to OpenRouter
-  let result = await tryGroq(text, dateStr);
+  let result = await tryGroq(text, dateStr, errors);
   if (!result) {
     console.log('Groq failed or unavailable, trying OpenRouter...');
-    result = await tryOpenRouter(text, dateStr);
+    result = await tryOpenRouter(text, dateStr, errors);
   }
   
   if (!result) {
-    throw new Error('No se pudo conectar a ninguna API de IA. Verifica tus API keys.');
+    const errorDetail = errors.length > 0 ? errors.join(' | ') : 'Sin API keys configuradas';
+    console.error('All AI APIs failed:', errorDetail);
+    throw new Error(`Error de IA: ${errorDetail}`);
   }
   
   return result;
@@ -57,9 +60,12 @@ function delay(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-async function tryGroq(text, dateStr) {
+async function tryGroq(text, dateStr, errors) {
   const apiKey = import.meta.env.VITE_GROQ_API_KEY;
-  if (!apiKey) return null;
+  if (!apiKey) {
+    errors.push('Groq: sin API key');
+    return null;
+  }
 
   const maxRetries = 2;
   for (let attempt = 0; attempt < maxRetries; attempt++) {
@@ -94,11 +100,13 @@ async function tryGroq(text, dateStr) {
           continue;
         }
         console.warn('Groq rate limit exceeded, falling back to OpenRouter');
+        errors.push('Groq: rate limit 429');
         return null;
       }
 
       if (!response.ok) {
         console.warn('Groq API error:', response.status);
+        errors.push(`Groq: HTTP ${response.status}`);
         return null;
       }
       
@@ -106,7 +114,9 @@ async function tryGroq(text, dateStr) {
       const content = data.choices[0].message.content;
       return processAIResponse(content, dateStr, 'Groq');
     } catch (e) {
-      console.warn(`Groq API attempt ${attempt + 1} failed:`, e.name === 'AbortError' ? 'Timeout after 60s' : e);
+      const errMsg = e.name === 'AbortError' ? 'Groq: timeout 60s' : `Groq: ${e.message}`;
+      console.warn(`Groq API attempt ${attempt + 1} failed:`, errMsg);
+      errors.push(errMsg);
       if (attempt === maxRetries - 1) return null;
       await delay(5000);
     }
@@ -114,10 +124,10 @@ async function tryGroq(text, dateStr) {
   return null;
 }
 
-async function tryOpenRouter(text, dateStr) {
+async function tryOpenRouter(text, dateStr, errors) {
   const apiKey = import.meta.env.VITE_OPENROUTER_API_KEY;
   if (!apiKey) {
-    console.warn('No OpenRouter API key found');
+    errors.push('OpenRouter: sin API key');
     return null;
   }
 
@@ -157,19 +167,23 @@ async function tryOpenRouter(text, dateStr) {
       if (!response.ok) {
         const errText = await response.text().catch(() => '');
         console.warn(`OpenRouter error (${model}):`, response.status, errText);
+        errors.push(`OpenRouter ${model}: HTTP ${response.status}`);
         continue; // Try next model
       }
       
       const data = await response.json();
       if (!data.choices?.[0]?.message?.content) {
         console.warn(`OpenRouter empty response (${model})`);
+        errors.push(`OpenRouter ${model}: respuesta vacía`);
         continue;
       }
       console.log(`OpenRouter success with model: ${model}`);
       const content = data.choices[0].message.content;
       return processAIResponse(content, dateStr, 'OpenRouter');
     } catch (e) {
-      console.warn(`OpenRouter failed (${model}):`, e.name === 'AbortError' ? 'Timeout after 90s' : e);
+      const errMsg = e.name === 'AbortError' ? `OpenRouter ${model}: timeout 90s` : `OpenRouter ${model}: ${e.message}`;
+      console.warn(errMsg);
+      errors.push(errMsg);
       continue;
     }
   }
