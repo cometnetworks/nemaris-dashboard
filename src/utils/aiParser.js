@@ -86,7 +86,7 @@ async function tryGroq(text, dateStr, errors) {
             { role: 'user', content: `Fecha del reporte: ${dateStr}\n\nTexto del informe:\n${text.substring(0, 28000)}` }
           ],
           temperature: 0.1,
-          max_tokens: 8000,
+          max_tokens: 4000,
           response_format: { type: 'json_object' }
         }),
       });
@@ -159,7 +159,7 @@ async function tryOpenRouter(text, dateStr, errors) {
             { role: 'user', content: `Fecha del reporte: ${dateStr}\n\nTexto del informe:\n${text.substring(0, 28000)}` }
           ],
           temperature: 0.1,
-          max_tokens: 8000,
+          max_tokens: 4000,
         }),
       });
       clearTimeout(timeout);
