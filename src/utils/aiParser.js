@@ -1,5 +1,6 @@
 const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
 const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions';
+const TOGETHER_API_URL = 'https://api.together.xyz/v1/chat/completions';
 
 const EXTRACTION_PROMPT = `Eres un extractor de datos de informes de prospección SAP para la empresa Nemaris. 
 Analiza el siguiente texto de un informe y extrae TODOS los prospectos mencionados.
@@ -42,6 +43,10 @@ export async function parseProspectsWithAI(text, reportDate = null) {
   if (!result) {
     console.log('Groq failed or unavailable, trying OpenRouter...');
     result = await tryOpenRouter(text, dateStr, errors);
+  }
+  if (!result) {
+    console.log('OpenRouter failed or unavailable, trying Together AI...');
+    result = await tryTogetherAI(text, dateStr, errors);
   }
   
   if (!result) {
@@ -188,6 +193,61 @@ async function tryOpenRouter(text, dateStr, errors) {
     }
   }
   return null;
+}
+
+async function tryTogetherAI(text, dateStr, errors) {
+  const apiKey = import.meta.env.VITE_TOGETHER_API_KEY;
+  if (!apiKey) {
+    errors.push('TogetherAI: sin API key');
+    return null;
+  }
+
+  try {
+    console.log('Trying Together AI directly...');
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 90000); // 90s timeout
+    const response = await fetch(TOGETHER_API_URL, {
+      method: 'POST',
+      signal: controller.signal,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: 'meta-llama/Llama-3.3-70B-Instruct-Turbo',
+        messages: [
+          { role: 'system', content: EXTRACTION_PROMPT },
+          { role: 'user', content: `Fecha del reporte: ${dateStr}\n\nTexto del informe:\n${text.substring(0, 28000)}` }
+        ],
+        temperature: 0.1,
+        max_tokens: 4000,
+        response_format: { type: 'json_object' }
+      }),
+    });
+    clearTimeout(timeout);
+    
+    if (!response.ok) {
+      const errText = await response.text().catch(() => '');
+      console.warn('TogetherAI error:', response.status, errText);
+      errors.push(`TogetherAI: HTTP ${response.status}`);
+      return null;
+    }
+    
+    const data = await response.json();
+    if (!data.choices?.[0]?.message?.content) {
+      console.warn('TogetherAI empty response');
+      errors.push('TogetherAI: respuesta vacía');
+      return null;
+    }
+    console.log('TogetherAI success');
+    const content = data.choices[0].message.content;
+    return processAIResponse(content, dateStr, 'TogetherAI');
+  } catch (e) {
+    const errMsg = e.name === 'AbortError' ? 'TogetherAI: timeout 90s' : `TogetherAI: ${e.message}`;
+    console.warn(errMsg);
+    errors.push(errMsg);
+    return null;
+  }
 }
 
 function processAIResponse(content, dateStr, source) {
