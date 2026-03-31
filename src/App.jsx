@@ -15,7 +15,7 @@ import Reports from './pages/Reports';
 
 export default function App() {
   const { theme, toggleTheme } = useTheme();
-  const { prospects, addProspects, updateProspect, reportHistory, stats } = useProspects();
+  const { prospects, addProspects, updateProspect, deleteProspect, reportHistory, stats } = useProspects();
   const { meetings, addMeeting, updateMeeting, deleteMeeting, uploadBriefPdf } = useMeetings();
   const [activeTab, setActiveTab] = useState('dashboard');
   const [selectedProspect, setSelectedProspect] = useState(null);
@@ -40,7 +40,7 @@ export default function App() {
       case 'pipeline':
         return <Pipeline prospects={prospects} isDark={isDark} />;
       case 'prospects':
-        return <Prospects prospects={prospects} isDark={isDark} onSelect={goToProspect} />;
+        return <Prospects prospects={prospects} isDark={isDark} onSelect={goToProspect} onDelete={deleteProspect} />;
       case 'prospect-detail':
         return <ProspectDetail prospect={selectedProspect} isDark={isDark} onBack={goBack} onUpdate={updateProspect} onScheduleMeeting={addMeeting} />;
       case 'opportunities':

@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Search, Filter, ArrowUpRight } from 'lucide-react';
+import { Search, Filter, ArrowUpRight, Trash2 } from 'lucide-react';
 
 const PRIORITY_STYLES = {
   'Alta': { bg: 'bg-red-500/10 text-red-400 border-red-500/20', dot: 'bg-red-500' },
@@ -8,7 +8,7 @@ const PRIORITY_STYLES = {
   'Baja': { bg: 'bg-zinc-500/10 text-zinc-400 border-zinc-500/20', dot: 'bg-zinc-500' },
 };
 
-export default function Prospects({ prospects, isDark, onSelect }) {
+export default function Prospects({ prospects, isDark, onSelect, onDelete }) {
   const [search, setSearch] = useState('');
   const [priorityFilter, setPriorityFilter] = useState('Todos');
   const [sectorFilter, setSectorFilter] = useState('Todos');
@@ -25,7 +25,7 @@ export default function Prospects({ prospects, isDark, onSelect }) {
       const matchesPriority = priorityFilter === 'Todos' || p.priority === priorityFilter;
       const matchesSector = sectorFilter === 'Todos' || p.sector === sectorFilter;
       return matchesSearch && matchesPriority && matchesSector;
-    });
+    }).sort((a, b) => a.company.localeCompare(b.company));
   }, [prospects, search, priorityFilter, sectorFilter]);
 
   return (
@@ -118,9 +118,23 @@ export default function Prospects({ prospects, isDark, onSelect }) {
                       </span>
                     </td>
                     <td className="px-5 py-4 text-right">
-                      <button className="text-blue-500 hover:text-blue-400 flex items-center gap-1 ml-auto text-xs font-medium">
-                        Ver detalle <ArrowUpRight size={12} />
-                      </button>
+                      <div className="flex justify-end items-center gap-4">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (window.confirm(`¿Estás seguro de eliminar a ${p.company}?`)) {
+                              onDelete(p.id);
+                            }
+                          }}
+                          className={`${isDark ? 'text-zinc-500 hover:text-red-400' : 'text-gray-400 hover:text-red-500'} transition-colors`}
+                          title="Eliminar prospecto"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                        <button className="text-blue-500 hover:text-blue-400 flex items-center gap-1 text-xs font-medium">
+                          Ver detalle <ArrowUpRight size={12} />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 );

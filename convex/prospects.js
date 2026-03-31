@@ -175,6 +175,13 @@ export const update = mutation({
   },
 });
 
+export const remove = mutation({
+  args: { id: v.id("prospects") },
+  handler: async (ctx, args) => {
+    await ctx.db.delete(args.id);
+  },
+});
+
 /**
  * Deduplicate existing prospects by company name.
  * Keeps the record with the most data, merges info from duplicates, then deletes extras.

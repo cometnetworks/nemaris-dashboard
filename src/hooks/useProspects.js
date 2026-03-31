@@ -6,6 +6,7 @@ export function useProspects() {
   const convexReports = useQuery(api.reports.list) ?? [];
   const upsertMany = useMutation(api.prospects.upsertMany);
   const updateProspect = useMutation(api.prospects.update);
+  const removeProspect = useMutation(api.prospects.remove);
   const addReport = useMutation(api.reports.add);
 
   // Map Convex docs to the shape the app expects (use _id as id, keep prospectId)
@@ -66,6 +67,13 @@ export function useProspects() {
     }
   };
 
+  const handleDeleteProspect = async (id) => {
+    const doc = convexProspects.find(p => p.prospectId === id);
+    if (doc) {
+      await removeProspect({ id: doc._id });
+    }
+  };
+
   const stats = {
     total: prospects.length,
     avgScore: Math.round(prospects.reduce((a, b) => a + b.score, 0) / (prospects.length || 1)),
@@ -73,5 +81,5 @@ export function useProspects() {
     sectors: [...new Set(prospects.map(p => p.sector))].length,
   };
 
-  return { prospects, addProspects, updateProspect: handleUpdateProspect, reportHistory, stats };
+  return { prospects, addProspects, updateProspect: handleUpdateProspect, deleteProspect: handleDeleteProspect, reportHistory, stats };
 }
