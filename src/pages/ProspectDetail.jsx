@@ -17,8 +17,10 @@ export default function ProspectDetail({ prospect, isDark, onBack, onUpdate, onS
   const startEdit = () => {
     setEditData({
       contactName: prospect.contactName || '',
+      contactTitle: prospect.contactTitle || '',
       contactEmail: prospect.contactEmail || '',
       linkedinUrl: prospect.linkedinUrl || (prospect.linkedinLinks?.[0]?.url || ''),
+      contactPhotoUrl: prospect.contactPhotoUrl || '',
       company: prospect.company,
       notes: prospect.notes || '',
     });
@@ -131,10 +133,18 @@ export default function ProspectDetail({ prospect, isDark, onBack, onUpdate, onS
 
         {/* Editable contact fields */}
         {isEditing && (
-          <div className={`mt-6 pt-5 border-t grid grid-cols-1 md:grid-cols-2 gap-4 ${isDark ? 'border-zinc-800' : 'border-gray-200'}`}>
+          <div className={`mt-6 pt-5 border-t grid grid-cols-1 md:grid-cols-3 gap-4 ${isDark ? 'border-zinc-800' : 'border-gray-200'}`}>
             <div>
               <label className={`block text-xs mb-1.5 font-medium ${isDark ? 'text-zinc-400' : 'text-gray-600'}`}>Nombre del Contacto</label>
               <input type="text" value={editData.contactName} onChange={e => setEditData(prev => ({ ...prev, contactName: e.target.value }))} className={inputClass} placeholder="Ej. Juan Pérez López" />
+            </div>
+            <div>
+              <label className={`block text-xs mb-1.5 font-medium ${isDark ? 'text-zinc-400' : 'text-gray-600'}`}>Cargo / Rol</label>
+              <input type="text" value={editData.contactTitle} onChange={e => setEditData(prev => ({ ...prev, contactTitle: e.target.value }))} className={inputClass} placeholder="Ej. Head of IT" />
+            </div>
+            <div>
+              <label className={`block text-xs mb-1.5 font-medium ${isDark ? 'text-zinc-400' : 'text-gray-600'}`}>URL Foto (LinkedIn / Web)</label>
+              <input type="url" value={editData.contactPhotoUrl} onChange={e => setEditData(prev => ({ ...prev, contactPhotoUrl: e.target.value }))} className={inputClass} placeholder="https://..." />
             </div>
             <div>
               <label className={`block text-xs mb-1.5 font-medium ${isDark ? 'text-zinc-400' : 'text-gray-600'}`}>Email del Contacto</label>
@@ -142,7 +152,7 @@ export default function ProspectDetail({ prospect, isDark, onBack, onUpdate, onS
             </div>
             <div>
               <label className={`block text-xs mb-1.5 font-medium ${isDark ? 'text-zinc-400' : 'text-gray-600'}`}>LinkedIn (URL correcta)</label>
-              <input type="url" value={editData.linkedinUrl} onChange={e => setEditData(prev => ({ ...prev, linkedinUrl: e.target.value }))} className={inputClass} placeholder="https://www.linkedin.com/in/..." />
+              <input type="url" value={editData.linkedinUrl} onChange={e => setEditData(prev => ({ ...prev, linkedinUrl: e.target.value }))} className={inputClass} placeholder="https://www.linkedin..." />
             </div>
             <div>
               <label className={`block text-xs mb-1.5 font-medium ${isDark ? 'text-zinc-400' : 'text-gray-600'}`}>Notas personales</label>
@@ -152,15 +162,38 @@ export default function ProspectDetail({ prospect, isDark, onBack, onUpdate, onS
         )}
 
         {/* Contact info display (non-edit mode) */}
-        {!isEditing && (p.contactName || p.contactEmail) && (
-          <div className={`mt-5 pt-4 border-t flex flex-wrap gap-4 text-sm ${isDark ? 'border-zinc-800 text-zinc-300' : 'border-gray-200 text-gray-700'}`}>
-            {p.contactName && <span>👤 {p.contactName}</span>}
-            {p.contactEmail && <span>📧 {p.contactEmail}</span>}
-            {p.linkedinUrl && (
-              <a href={p.linkedinUrl} target="_blank" rel="noreferrer" className="text-blue-500 hover:underline flex items-center gap-1">
-                <ExternalLink size={12} /> LinkedIn
-              </a>
-            )}
+        {!isEditing && (p.contactName || p.contactEmail || p.contactTitle) && (
+          <div className={`mt-6 pt-5 border-t ${isDark ? 'border-zinc-800' : 'border-gray-200'}`}>
+            <h3 className="text-xs font-bold uppercase tracking-widest flex items-center gap-2 mb-4 text-purple-500">
+              <Users size={14} /> Contacto Principal (Decisor)
+            </h3>
+            <div className={`flex flex-col sm:flex-row items-start gap-4 p-5 rounded-2xl ${isDark ? 'bg-zinc-900/80 border border-zinc-800/80' : 'bg-gray-50 border border-gray-100'}`}>
+              {p.contactPhotoUrl ? (
+                <img src={p.contactPhotoUrl} alt={p.contactName} className="w-16 h-16 rounded-full object-cover shadow-sm border border-zinc-200/20 flex-shrink-0" />
+              ) : (
+                <div className={`w-16 h-16 rounded-full flex items-center justify-center text-xl font-bold flex-shrink-0 ${isDark ? 'bg-zinc-800 text-zinc-400' : 'bg-gray-200 text-gray-500'}`}>
+                  {p.contactName ? p.contactName.charAt(0).toUpperCase() : '👤'}
+                </div>
+              )}
+              <div className="flex-1 w-full">
+                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3">
+                  <div>
+                    <h4 className={`text-xl font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>{p.contactName || 'Sin Nombre'}</h4>
+                    {p.contactTitle && <p className={`text-md font-medium mt-0.5 ${isDark ? 'text-zinc-400' : 'text-gray-600'}`}>{p.contactTitle}</p>}
+                  </div>
+                  {p.linkedinUrl && (
+                    <a href={p.linkedinUrl} target="_blank" rel="noreferrer" className={`flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg transition-colors flex-shrink-0 ${isDark ? 'bg-blue-500/10 text-blue-400 hover:bg-blue-500/20' : 'bg-blue-50 text-blue-600 hover:bg-blue-100'}`}>
+                      <ExternalLink size={12} /> LinkedIn
+                    </a>
+                  )}
+                </div>
+                {p.contactEmail && (
+                  <div className={`mt-3 flex items-center gap-2 text-sm ${isDark ? 'text-zinc-400' : 'text-gray-500'}`}>
+                    <span className="flex items-center gap-1.5">📧 {p.contactEmail}</span>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         )}
       </div>

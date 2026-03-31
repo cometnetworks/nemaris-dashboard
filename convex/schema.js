@@ -23,8 +23,10 @@ export default defineSchema({
     reportSource: v.string(),
     // Editable fields
     contactName: v.optional(v.string()),
+    contactTitle: v.optional(v.string()),
     contactEmail: v.optional(v.string()),
     contactLinkedin: v.optional(v.string()),
+    contactPhotoUrl: v.optional(v.string()),
     customNotes: v.optional(v.string()),
   }).index("by_prospectId", ["prospectId"]),
 
