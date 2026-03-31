@@ -34,9 +34,16 @@ Responde ÚNICAMENTE con el array JSON, sin ningún otro texto.`;
 /**
  * Parse prospects from text using Groq API with OpenRouter fallback
  */
-export async function parseProspectsWithAI(text, reportDate = null) {
+export async function parseProspectsWithAI(rawText, reportDate = null) {
   const dateStr = reportDate || new Date().toISOString().split('T')[0];
   const errors = [];
+  
+  // Comprimir el texto: primero tomamos un margen grande, luego quitamos espacios innecesarios
+  // Esto aumenta la cantidad de "información útil" que enviamos y ahorra tokens.
+  let text = rawText.substring(0, 40000); 
+  text = text.replace(/[\r\n\t ]+/g, ' ').trim();
+  // Tomar hasta 15,000 caracteres ya comprimidos (~3000 a 4000 tokens dependiendo del texto)
+  text = text.substring(0, 15000);
   
   // Try Groq first (with retry on 429), then fallback to OpenRouter
   let result = await tryGroq(text, dateStr, errors);
@@ -88,10 +95,10 @@ async function tryGroq(text, dateStr, errors) {
           model: 'llama-3.3-70b-versatile',
           messages: [
             { role: 'system', content: EXTRACTION_PROMPT },
-            { role: 'user', content: `Fecha del reporte: ${dateStr}\n\nTexto del informe:\n${text.substring(0, 28000)}` }
+            { role: 'user', content: `Fecha del reporte: ${dateStr}\n\nTexto del informe comprimido:\n${text}` }
           ],
           temperature: 0.1,
-          max_tokens: 4000,
+          max_tokens: 3000,
           response_format: { type: 'json_object' }
         }),
       });
@@ -161,10 +168,10 @@ async function tryOpenRouter(text, dateStr, errors) {
           model,
           messages: [
             { role: 'system', content: EXTRACTION_PROMPT },
-            { role: 'user', content: `Fecha del reporte: ${dateStr}\n\nTexto del informe:\n${text.substring(0, 28000)}` }
+            { role: 'user', content: `Fecha del reporte: ${dateStr}\n\nTexto del informe comprimido:\n${text}` }
           ],
           temperature: 0.1,
-          max_tokens: 4000,
+          max_tokens: 3000,
         }),
       });
       clearTimeout(timeout);
@@ -217,10 +224,10 @@ async function tryTogetherAI(text, dateStr, errors) {
         model: 'meta-llama/Llama-3.3-70B-Instruct-Turbo',
         messages: [
           { role: 'system', content: EXTRACTION_PROMPT },
-          { role: 'user', content: `Fecha del reporte: ${dateStr}\n\nTexto del informe:\n${text.substring(0, 28000)}` }
+          { role: 'user', content: `Fecha del reporte: ${dateStr}\n\nTexto del informe comprimido:\n${text}` }
         ],
         temperature: 0.1,
-        max_tokens: 4000,
+        max_tokens: 3000,
         response_format: { type: 'json_object' }
       }),
     });
