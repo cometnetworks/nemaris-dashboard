@@ -127,8 +127,10 @@ function mergeProspects(existing, incoming) {
 
   // Preserve editable fields from existing
   if (existing.contactName) merged.contactName = existing.contactName;
+  if (existing.contactTitle) merged.contactTitle = existing.contactTitle;
   if (existing.contactEmail) merged.contactEmail = existing.contactEmail;
   if (existing.contactLinkedin) merged.contactLinkedin = existing.contactLinkedin;
+  if (existing.contactPhotoUrl) merged.contactPhotoUrl = existing.contactPhotoUrl;
   if (existing.customNotes) merged.customNotes = existing.customNotes;
 
   return merged;
@@ -154,8 +156,10 @@ export const update = mutation({
       ctaSugerido: v.optional(v.string()),
       discoveryNote: v.optional(v.string()),
       contactName: v.optional(v.string()),
+      contactTitle: v.optional(v.string()),
       contactEmail: v.optional(v.string()),
       contactLinkedin: v.optional(v.string()),
+      contactPhotoUrl: v.optional(v.string()),
       customNotes: v.optional(v.string()),
     }),
   },
