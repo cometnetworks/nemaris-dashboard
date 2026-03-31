@@ -42,8 +42,8 @@ export async function parseProspectsWithAI(rawText, reportDate = null) {
   // Esto aumenta la cantidad de "información útil" que enviamos y ahorra tokens.
   let text = rawText.substring(0, 40000); 
   text = text.replace(/[\r\n\t ]+/g, ' ').trim();
-  // Tomar hasta 15,000 caracteres ya comprimidos (~3000 a 4000 tokens dependiendo del texto)
-  text = text.substring(0, 15000);
+  // Tomar hasta 12,000 caracteres ya comprimidos (~2500 tokens)
+  text = text.substring(0, 12000);
   
   // Try Groq first (with retry on 429), then fallback to OpenRouter
   let result = await tryGroq(text, dateStr, errors);
@@ -98,7 +98,7 @@ async function tryGroq(text, dateStr, errors) {
             { role: 'user', content: `Fecha del reporte: ${dateStr}\n\nTexto del informe comprimido:\n${text}` }
           ],
           temperature: 0.1,
-          max_tokens: 3000,
+          max_tokens: 2500,
           response_format: { type: 'json_object' }
         }),
       });
@@ -227,7 +227,7 @@ async function tryTogetherAI(text, dateStr, errors) {
           { role: 'user', content: `Fecha del reporte: ${dateStr}\n\nTexto del informe comprimido:\n${text}` }
         ],
         temperature: 0.1,
-        max_tokens: 3000,
+        max_tokens: 2500,
         response_format: { type: 'json_object' }
       }),
     });
