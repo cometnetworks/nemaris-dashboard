@@ -1,13 +1,15 @@
 import React from 'react';
-import { Briefcase, TrendingUp, AlertCircle, Calendar, ArrowUpRight } from 'lucide-react';
+import { Briefcase, TrendingUp, AlertCircle, Calendar, ArrowUpRight, CheckCircle, Clock } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { exportWeeklyReport } from '../utils/excelExport';
 
 const SECTOR_COLORS = ['#3b82f6', '#f97316', '#22c55e', '#a855f7', '#06b6d4', '#ef4444', '#eab308'];
 
-function MetricCard({ title, value, subtitle, icon: Icon, color, isDark, delay = 0 }) {
+function MetricCard({ title, value, subtitle, icon: Icon, color, isDark, delay = 0, onClick }) {
   return (
-    <div className={`p-5 rounded-2xl border transition-all hover:scale-[1.02] animate-fade-in ${
+    <div 
+      onClick={onClick}
+      className={`p-5 rounded-2xl border transition-all animate-fade-in ${onClick ? 'cursor-pointer hover:scale-[1.02]' : 'hover:scale-[1.02]'} ${
       isDark ? 'bg-[#18181b] border-zinc-800/80 hover:border-zinc-700' : 'bg-white border-gray-100 shadow-sm hover:shadow-md'
     }`} style={{ animationDelay: `${delay}ms` }}>
       <div className="flex items-start justify-between mb-3">
@@ -22,7 +24,7 @@ function MetricCard({ title, value, subtitle, icon: Icon, color, isDark, delay =
   );
 }
 
-export default function Dashboard({ prospects, meetings, stats, isDark, onViewProspect }) {
+export default function Dashboard({ prospects, meetings, stats, isDark, onViewProspect, onStatusClick }) {
   const urgents = prospects.filter(p => p.priority === 'Alta').slice(0, 4);
   
   // Chart data
@@ -59,11 +61,13 @@ export default function Dashboard({ prospects, meetings, stats, isDark, onViewPr
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
       {/* KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <MetricCard title="Total Prospectos" value={stats.total} subtitle="Acumulados" icon={Briefcase} color={isDark ? 'bg-blue-500/10 text-blue-400' : 'bg-blue-100 text-blue-600'} isDark={isDark} delay={0} />
-        <MetricCard title="Score Promedio" value={`${stats.avgScore}`} subtitle="de 100" icon={TrendingUp} color={isDark ? 'bg-green-500/10 text-green-400' : 'bg-green-100 text-green-600'} isDark={isDark} delay={50} />
-        <MetricCard title="Alta Prioridad" value={stats.highPriority} subtitle="Acción inmediata" icon={AlertCircle} color={isDark ? 'bg-orange-500/10 text-orange-400' : 'bg-orange-100 text-orange-600'} isDark={isDark} delay={100} />
-        <MetricCard title="Reuniones" value={upcomingMeetings.length} subtitle="Próximas" icon={Calendar} color={isDark ? 'bg-purple-500/10 text-purple-400' : 'bg-purple-100 text-purple-600'} isDark={isDark} delay={150} />
+      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4">
+        <MetricCard title="Prospectos" value={stats.total} subtitle="Acumulados" icon={Briefcase} color={isDark ? 'bg-blue-500/10 text-blue-400' : 'bg-blue-100 text-blue-600'} isDark={isDark} delay={0} />
+        <MetricCard title="Enriquecidos" value={stats.enriched} subtitle="Datos validados" icon={CheckCircle} color={isDark ? 'bg-indigo-500/10 text-indigo-400' : 'bg-indigo-100 text-indigo-600'} isDark={isDark} delay={50} />
+        <MetricCard title="Listos p/ Envío" value={stats.readyToSend} subtitle="Draft completo" icon={ArrowUpRight} color={isDark ? 'bg-green-500/10 text-green-400' : 'bg-green-100 text-green-600'} isDark={isDark} delay={100} onClick={() => onStatusClick && onStatusClick('ready')} />
+        <MetricCard title="Pendientes" value={stats.pendingEnrichment} subtitle="Por enriquecer" icon={Clock} color={isDark ? 'bg-amber-500/10 text-amber-400' : 'bg-amber-100 text-amber-600'} isDark={isDark} delay={150} onClick={() => onStatusClick && onStatusClick('pending')} />
+        <MetricCard title="Prioridad" value={stats.highPriority} subtitle="Alta / Urgente" icon={AlertCircle} color={isDark ? 'bg-orange-500/10 text-orange-400' : 'bg-orange-100 text-orange-600'} isDark={isDark} delay={200} />
+        <MetricCard title="Reuniones" value={upcomingMeetings.length} subtitle="Próximas" icon={Calendar} color={isDark ? 'bg-purple-500/10 text-purple-400' : 'bg-purple-100 text-purple-600'} isDark={isDark} delay={250} />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
