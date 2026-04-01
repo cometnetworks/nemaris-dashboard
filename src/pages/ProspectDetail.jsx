@@ -1,8 +1,10 @@
 import React, { useState, useRef } from 'react';
-import { ArrowLeft, Briefcase, Activity, Target, Users, FileText, Copy, ExternalLink, Zap, Edit3, Save, X, CalendarPlus, Paperclip } from 'lucide-react';
+import { ArrowLeft, Briefcase, Activity, Target, Users, FileText, Copy, ExternalLink, Zap, Edit3, Save, X, CalendarPlus, Paperclip, Clock, Send } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { useEmails } from '../hooks/useEmails';
 
 export default function ProspectDetail({ prospect, isDark, onBack, onUpdate, onScheduleMeeting }) {
+  const { sentTodayCount, emailLogs, sendProspectEmail, canSendToday } = useEmails(prospect?.id);
   if (!prospect) return null;
 
   const [isEditing, setIsEditing] = useState(false);
@@ -312,9 +314,37 @@ export default function ProspectDetail({ prospect, isDark, onBack, onUpdate, onS
 
       {/* Email Templates */}
       <div className={cardClass}>
-        <h3 className="text-xs font-bold uppercase tracking-widest text-green-500 flex items-center gap-2 mb-5">
-          <FileText size={14} /> Templates de Contacto
-        </h3>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-5 pb-4 border-b border-zinc-200 dark:border-zinc-800">
+          <h3 className="text-xs font-bold uppercase tracking-widest text-green-500 flex items-center gap-2">
+            <FileText size={14} /> Templates de Contacto
+          </h3>
+          
+          <div className="flex items-center gap-3">
+            <div className={`px-3 py-1.5 rounded-lg text-xs font-medium border flex items-center gap-2 ${isDark ? 'bg-zinc-900 border-zinc-700 text-zinc-300' : 'bg-gray-50 border-gray-200 text-gray-700'}`}>
+              <div className={`w-2 h-2 rounded-full ${canSendToday ? 'bg-amber-500 animate-pulse' : 'bg-red-500'}`}></div>
+              <span>Envíos hoy: <strong>{sentTodayCount}/10</strong></span>
+            </div>
+            
+            {!isEditing && p.contactName && p.contactEmail && p.emailBody && (
+              <button
+                onClick={async () => {
+                  toast.loading('Enviando...', { id: 'email-send' });
+                  try {
+                    await sendProspectEmail(p);
+                    toast.success('Correo enviado exitosamente', { id: 'email-send' });
+                  } catch(e) {
+                    toast.error(e.message, { id: 'email-send' });
+                  }
+                }}
+                disabled={!canSendToday}
+                className={`flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-bold transition-all shadow-lg ${canSendToday ? 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-indigo-500/25 active:scale-95' : 'bg-zinc-600 text-zinc-300 opacity-50 cursor-not-allowed'}`}
+              >
+                <Send size={14} /> Enviar
+              </button>
+            )}
+          </div>
+        </div>
+
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
           {/* Subject */}
           <div className="lg:col-span-2">
@@ -381,6 +411,55 @@ export default function ProspectDetail({ prospect, isDark, onBack, onUpdate, onS
           <p className={`text-sm leading-relaxed ${isDark ? 'text-zinc-300' : 'text-gray-800'}`}>{p.discoveryNote}</p>
         </div>
       )}
+
+      {/* Activity Timeline */}
+      <div className={cardClass}>
+        <div className="flex items-center justify-between mb-6">
+          <h3 className="text-xs font-bold uppercase tracking-widest flex items-center gap-2 text-indigo-500">
+            <Clock size={14} /> Historial de Actividad
+          </h3>
+          <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${isDark ? 'bg-indigo-500/10 text-indigo-400' : 'bg-indigo-100 text-indigo-600'}`}>
+            Conectado a Resend
+          </span>
+        </div>
+        
+        <div className="relative pl-6 border-l-2 ml-3 space-y-8 border-indigo-200 dark:border-indigo-500/30">
+          
+          {emailLogs && emailLogs.length > 0 ? emailLogs.map((log) => (
+            <div key={log._id} className="relative">
+              <div className={`absolute -left-[31px] w-4 h-4 rounded-full border-2 ${isDark ? 'bg-[#18181b] border-indigo-500' : 'bg-white border-indigo-500'}`} />
+              <div>
+                <p className={`text-sm font-semibold mb-1 ${isDark ? 'text-zinc-200' : 'text-gray-900'}`}>{log.subject}</p>
+                <p className={`text-xs mb-2 ${isDark ? 'text-zinc-500' : 'text-gray-500'}`}>{new Date(log.date).toLocaleString()} — Enviado a {log.recipient}</p>
+                <div className={`p-3 rounded-xl border text-sm flex items-center gap-2 font-medium ${isDark ? 'bg-zinc-900/50 border-zinc-800 text-zinc-300' : 'bg-gray-50 border-gray-100 text-gray-700'}`}>
+                  {log.status === 'sent' && '📤 Solicitud Enviada'}
+                  {log.status === 'delivered' && '✅ Entregado al servidor'}
+                  {log.status === 'opened' && '👁️ Abierto / Leído'}
+                  {log.status === 'bounced' && '❌ Rebotado'}
+                  {log.status === 'complaint' && '⚠️ Reportado como Spam'}
+                </div>
+              </div>
+            </div>
+          )) : (
+            <div className="relative">
+              <div className={`absolute -left-[31px] w-4 h-4 rounded-full border-2 ${isDark ? 'bg-[#18181b] border-indigo-500' : 'bg-white border-indigo-500'}`} />
+              <div>
+                <p className={`text-sm font-semibold mb-1 ${isDark ? 'text-zinc-200' : 'text-gray-900'}`}>Sin actividad de email</p>
+                <p className={`text-xs mb-2 ${isDark ? 'text-zinc-500' : 'text-gray-500'}`}>Los correos enviados aparecerán aquí</p>
+              </div>
+            </div>
+          )}
+
+          <div className="relative">
+            <div className={`absolute -left-[31px] w-4 h-4 rounded-full border-2 opacity-50 ${isDark ? 'bg-zinc-800 border-zinc-600' : 'bg-gray-100 border-gray-400'}`} />
+            <div>
+              <p className={`text-sm font-semibold mb-1 opacity-70 ${isDark ? 'text-zinc-400' : 'text-gray-600'}`}>Prospecto Registrado</p>
+              <p className={`text-xs opacity-50 ${isDark ? 'text-zinc-600' : 'text-gray-400'}`}>Fecha de creación: {p.reportDate || 'N/A'}</p>
+            </div>
+          </div>
+
+        </div>
+      </div>
     </div>
   );
 }
