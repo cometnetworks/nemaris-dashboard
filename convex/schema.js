@@ -47,4 +47,19 @@ export default defineSchema({
     source: v.string(),
     status: v.string(),
   }),
+
+  emailLogs: defineTable({
+    prospectId: v.string(),
+    status: v.string(), // "pending", "sent", "delivered", "opened", "bounced"
+    subject: v.string(),
+    recipient: v.string(),
+    resendId: v.optional(v.string()), // Returned from Resend
+    date: v.string(), // ISO String
+  }).index("by_prospect", ["prospectId"])
+    .index("by_resendId", ["resendId"]),
+
+  dailyStats: defineTable({
+    date: v.string(), // Format "YYYY-MM-DD"
+    sentCount: v.number(),
+  }).index("by_date", ["date"]),
 });

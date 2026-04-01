@@ -125,13 +125,12 @@ function mergeProspects(existing, incoming) {
     merged.reportSource = incoming.reportSource;
   }
 
-  // Preserve editable fields from existing
-  if (existing.contactName) merged.contactName = existing.contactName;
-  if (existing.contactTitle) merged.contactTitle = existing.contactTitle;
-  if (existing.contactEmail) merged.contactEmail = existing.contactEmail;
-  if (existing.contactLinkedin) merged.contactLinkedin = existing.contactLinkedin;
-  if (existing.contactPhotoUrl) merged.contactPhotoUrl = existing.contactPhotoUrl;
-  if (existing.customNotes) merged.customNotes = existing.customNotes;
+  // Preserve editable fields — prefer existing (user-edited), fallback to incoming
+  const editableFields = ['contactName', 'contactTitle', 'contactEmail', 'contactLinkedin', 'contactPhotoUrl', 'customNotes'];
+  for (const field of editableFields) {
+    const val = existing[field] || incoming[field];
+    if (val) merged[field] = val;
+  }
 
   return merged;
 }
@@ -204,7 +203,7 @@ export const deduplicateAll = mutation({
     let merged = 0;
     let deleted = 0;
 
-    for (const [key, group] of groups.entries()) {
+    for (const [, group] of groups.entries()) {
       if (group.length <= 1) continue;
 
       // Sort by data richness: more fields filled = keep

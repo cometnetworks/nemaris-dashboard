@@ -1,16 +1,18 @@
 import React, { useState, useRef } from 'react';
-import { ArrowLeft, Briefcase, Activity, Target, Users, FileText, Copy, ExternalLink, Zap, Edit3, Save, X, CalendarPlus, Paperclip } from 'lucide-react';
+import { ArrowLeft, Briefcase, Activity, Target, Users, FileText, Copy, ExternalLink, Zap, Edit3, Save, X, CalendarPlus, Paperclip, Clock, Send } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { useEmails } from '../hooks/useEmails';
 
 export default function ProspectDetail({ prospect, isDark, onBack, onUpdate, onScheduleMeeting }) {
-  if (!prospect) return null;
-
+  const { sentTodayCount, emailLogs, sendProspectEmail, canSendToday } = useEmails(prospect?.id);
   const [isEditing, setIsEditing] = useState(false);
   const [editData, setEditData] = useState({});
   const [meetingDate, setMeetingDate] = useState('');
   const [meetingLink, setMeetingLink] = useState('');
   const [showMeetingForm, setShowMeetingForm] = useState(false);
   const fileInputRef = useRef(null);
+
+  if (!prospect) return null;
 
   const p = { ...prospect, ...editData };
 
@@ -19,18 +21,27 @@ export default function ProspectDetail({ prospect, isDark, onBack, onUpdate, onS
       contactName: prospect.contactName || '',
       contactTitle: prospect.contactTitle || '',
       contactEmail: prospect.contactEmail || '',
-      linkedinUrl: prospect.linkedinUrl || (prospect.linkedinLinks?.[0]?.url || ''),
+      contactLinkedin: prospect.contactLinkedin || (prospect.linkedinLinks?.[0]?.url || ''),
       contactPhotoUrl: prospect.contactPhotoUrl || '',
       company: prospect.company,
-      notes: prospect.notes || '',
+      customNotes: prospect.customNotes || '',
+      emailSubject: prospect.emailSubject || '',
+      emailBody: prospect.emailBody || '',
+      followUpEmail: prospect.followUpEmail || '',
+      ctaSugerido: prospect.ctaSugerido || '',
     });
     setIsEditing(true);
   };
 
-  const saveEdit = () => {
-    onUpdate(prospect.id, editData);
-    setIsEditing(false);
-    toast.success('Prospecto actualizado');
+  const saveEdit = async () => {
+    try {
+      await onUpdate(prospect.id, editData);
+      setEditData({});
+      setIsEditing(false);
+      toast.success('Prospecto actualizado');
+    } catch (err) {
+      toast.error('Error al guardar: ' + err.message);
+    }
   };
 
   const cancelEdit = () => {
@@ -152,11 +163,11 @@ export default function ProspectDetail({ prospect, isDark, onBack, onUpdate, onS
             </div>
             <div>
               <label className={`block text-xs mb-1.5 font-medium ${isDark ? 'text-zinc-400' : 'text-gray-600'}`}>LinkedIn (URL correcta)</label>
-              <input type="url" value={editData.linkedinUrl} onChange={e => setEditData(prev => ({ ...prev, linkedinUrl: e.target.value }))} className={inputClass} placeholder="https://www.linkedin..." />
+              <input type="url" value={editData.contactLinkedin} onChange={e => setEditData(prev => ({ ...prev, contactLinkedin: e.target.value }))} className={inputClass} placeholder="https://www.linkedin..." />
             </div>
             <div>
               <label className={`block text-xs mb-1.5 font-medium ${isDark ? 'text-zinc-400' : 'text-gray-600'}`}>Notas personales</label>
-              <input type="text" value={editData.notes} onChange={e => setEditData(prev => ({ ...prev, notes: e.target.value }))} className={inputClass} placeholder="Notas adicionales..." />
+              <input type="text" value={editData.customNotes} onChange={e => setEditData(prev => ({ ...prev, customNotes: e.target.value }))} className={inputClass} placeholder="Notas adicionales..." />
             </div>
           </div>
         )}
@@ -181,8 +192,8 @@ export default function ProspectDetail({ prospect, isDark, onBack, onUpdate, onS
                     <h4 className={`text-xl font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>{p.contactName || 'Sin Nombre'}</h4>
                     {p.contactTitle && <p className={`text-md font-medium mt-0.5 ${isDark ? 'text-zinc-400' : 'text-gray-600'}`}>{p.contactTitle}</p>}
                   </div>
-                  {p.linkedinUrl && (
-                    <a href={p.linkedinUrl} target="_blank" rel="noreferrer" className={`flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg transition-colors flex-shrink-0 ${isDark ? 'bg-blue-500/10 text-blue-400 hover:bg-blue-500/20' : 'bg-blue-50 text-blue-600 hover:bg-blue-100'}`}>
+                  {p.contactLinkedin && (
+                    <a href={p.contactLinkedin} target="_blank" rel="noreferrer" className={`flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg transition-colors flex-shrink-0 ${isDark ? 'bg-blue-500/10 text-blue-400 hover:bg-blue-500/20' : 'bg-blue-50 text-blue-600 hover:bg-blue-100'}`}>
                       <ExternalLink size={12} /> LinkedIn
                     </a>
                   )}
@@ -289,8 +300,8 @@ export default function ProspectDetail({ prospect, isDark, onBack, onUpdate, onS
               <span className="font-semibold block mb-2">Decisor principal</span>
               <span className={isDark ? 'text-zinc-300' : 'text-gray-700'}>{p.deciders}</span>
             </div>
-            {p.linkedinUrl ? (
-              <a href={p.linkedinUrl} target="_blank" rel="noreferrer"
+            {p.contactLinkedin ? (
+              <a href={p.contactLinkedin} target="_blank" rel="noreferrer"
                 className={`mt-3 flex items-center gap-2 text-sm px-3 py-2 rounded-lg transition-colors ${isDark ? 'hover:bg-zinc-900 text-blue-400' : 'hover:bg-gray-50 text-blue-600'}`}
               >
                 <ExternalLink size={14} /> Ver en LinkedIn
@@ -312,61 +323,113 @@ export default function ProspectDetail({ prospect, isDark, onBack, onUpdate, onS
 
       {/* Email Templates */}
       <div className={cardClass}>
-        <h3 className="text-xs font-bold uppercase tracking-widest text-green-500 flex items-center gap-2 mb-5">
-          <FileText size={14} /> Templates de Contacto
-        </h3>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-5 pb-4 border-b border-zinc-200 dark:border-zinc-800">
+          <h3 className="text-xs font-bold uppercase tracking-widest text-green-500 flex items-center gap-2">
+            <FileText size={14} /> Templates de Contacto
+          </h3>
+          
+          <div className="flex items-center gap-3">
+            <div className={`px-3 py-1.5 rounded-lg text-xs font-medium border flex items-center gap-2 ${isDark ? 'bg-zinc-900 border-zinc-700 text-zinc-300' : 'bg-gray-50 border-gray-200 text-gray-700'}`}>
+              <div className={`w-2 h-2 rounded-full ${canSendToday ? 'bg-amber-500 animate-pulse' : 'bg-red-500'}`}></div>
+              <span>Envíos hoy: <strong>{sentTodayCount}/10</strong></span>
+            </div>
+            
+            {!isEditing && p.contactName && p.contactEmail && p.emailBody && (
+              <button
+                onClick={async () => {
+                  toast.loading('Enviando...', { id: 'email-send' });
+                  try {
+                    await sendProspectEmail(p);
+                    toast.success('Correo enviado exitosamente', { id: 'email-send' });
+                  } catch(e) {
+                    toast.error(e.message, { id: 'email-send' });
+                  }
+                }}
+                disabled={!canSendToday}
+                className={`flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-bold transition-all shadow-lg ${canSendToday ? 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-indigo-500/25 active:scale-95' : 'bg-zinc-600 text-zinc-300 opacity-50 cursor-not-allowed'}`}
+              >
+                <Send size={14} /> Enviar
+              </button>
+            )}
+          </div>
+        </div>
+
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
           {/* Subject */}
           <div className="lg:col-span-2">
             <div className="flex justify-between items-center mb-1.5">
               <span className={`text-xs ${isDark ? 'text-zinc-500' : 'text-gray-400'}`}>Asunto sugerido</span>
-              <button onClick={() => copy(p.emailSubject, 'Asunto')} className={`p-1 rounded hover:bg-zinc-800 transition-colors ${isDark ? 'text-zinc-500 hover:text-zinc-300' : 'text-gray-400 hover:text-gray-600'}`}>
-                <Copy size={14} />
-              </button>
+              {!isEditing && (
+                <button onClick={() => copy(p.emailSubject, 'Asunto')} className={`p-1 rounded hover:bg-zinc-800 transition-colors ${isDark ? 'text-zinc-500 hover:text-zinc-300' : 'text-gray-400 hover:text-gray-600'}`}>
+                  <Copy size={14} />
+                </button>
+              )}
             </div>
-            <div className={`p-3 rounded-xl text-sm font-medium ${isDark ? 'bg-zinc-900 border border-zinc-800' : 'bg-gray-50 border border-gray-200'}`}>
-              {p.emailSubject}
-            </div>
+            {isEditing ? (
+              <input type="text" value={editData.emailSubject ?? ''} onChange={e => setEditData(prev => ({ ...prev, emailSubject: e.target.value }))} className={inputClass} placeholder="Escribe el asunto..." />
+            ) : (
+              <div className={`p-3 rounded-xl text-sm font-medium ${isDark ? 'bg-zinc-900 border border-zinc-800' : 'bg-gray-50 border border-gray-200'}`}>
+                {p.emailSubject}
+              </div>
+            )}
           </div>
 
           {/* Email Body */}
           <div>
             <div className="flex justify-between items-center mb-1.5">
               <span className={`text-xs ${isDark ? 'text-zinc-500' : 'text-gray-400'}`}>Email inicial</span>
-              <button onClick={() => copy(p.emailBody, 'Email')} className={`p-1 rounded hover:bg-zinc-800 transition-colors ${isDark ? 'text-zinc-500 hover:text-zinc-300' : 'text-gray-400 hover:text-gray-600'}`}>
-                <Copy size={14} />
-              </button>
+              {!isEditing && (
+                <button onClick={() => copy(p.emailBody, 'Email')} className={`p-1 rounded hover:bg-zinc-800 transition-colors ${isDark ? 'text-zinc-500 hover:text-zinc-300' : 'text-gray-400 hover:text-gray-600'}`}>
+                  <Copy size={14} />
+                </button>
+              )}
             </div>
-            <div className={`p-4 rounded-xl text-sm whitespace-pre-wrap leading-relaxed ${isDark ? 'bg-zinc-900 border border-zinc-800 text-zinc-300' : 'bg-gray-50 border border-gray-200 text-gray-700'}`}>
-              {p.emailBody}
-            </div>
+            {isEditing ? (
+              <textarea rows={8} value={editData.emailBody ?? ''} onChange={e => setEditData(prev => ({ ...prev, emailBody: e.target.value }))} className={inputClass} placeholder="Contenido del email..."></textarea>
+            ) : (
+              <div className={`p-4 rounded-xl text-sm whitespace-pre-wrap leading-relaxed ${isDark ? 'bg-zinc-900 border border-zinc-800 text-zinc-300' : 'bg-gray-50 border border-gray-200 text-gray-700'}`}>
+                {p.emailBody}
+              </div>
+            )}
           </div>
 
           {/* Follow-up */}
           <div>
             <div className="flex justify-between items-center mb-1.5">
               <span className={`text-xs ${isDark ? 'text-zinc-500' : 'text-gray-400'}`}>Follow-up</span>
-              <button onClick={() => copy(p.followUpEmail || '', 'Follow-up')} className={`p-1 rounded hover:bg-zinc-800 transition-colors ${isDark ? 'text-zinc-500 hover:text-zinc-300' : 'text-gray-400 hover:text-gray-600'}`}>
-                <Copy size={14} />
-              </button>
+              {!isEditing && (
+                <button onClick={() => copy(p.followUpEmail || '', 'Follow-up')} className={`p-1 rounded hover:bg-zinc-800 transition-colors ${isDark ? 'text-zinc-500 hover:text-zinc-300' : 'text-gray-400 hover:text-gray-600'}`}>
+                  <Copy size={14} />
+                </button>
+              )}
             </div>
-            <div className={`p-4 rounded-xl text-sm whitespace-pre-wrap leading-relaxed ${isDark ? 'bg-zinc-900 border border-zinc-800 text-zinc-300' : 'bg-gray-50 border border-gray-200 text-gray-700'}`}>
-              {p.followUpEmail || 'No disponible'}
-            </div>
+            {isEditing ? (
+              <textarea rows={8} value={editData.followUpEmail ?? ''} onChange={e => setEditData(prev => ({ ...prev, followUpEmail: e.target.value }))} className={inputClass} placeholder="Contenido del follow-up..."></textarea>
+            ) : (
+              <div className={`p-4 rounded-xl text-sm whitespace-pre-wrap leading-relaxed ${isDark ? 'bg-zinc-900 border border-zinc-800 text-zinc-300' : 'bg-gray-50 border border-gray-200 text-gray-700'}`}>
+                {p.followUpEmail || 'No disponible'}
+              </div>
+            )}
           </div>
         </div>
 
         {/* CTA */}
-        {p.ctaSugerido && (
+        {(p.ctaSugerido || isEditing) && (
           <div className={`mt-5 p-4 rounded-xl border-l-4 border-amber-500 ${isDark ? 'bg-amber-500/5' : 'bg-amber-50'}`}>
             <div className="flex justify-between items-start">
-              <div>
-                <span className="text-xs font-bold uppercase tracking-widest text-amber-500">CTA Sugerido</span>
-                <p className={`text-sm mt-1 ${isDark ? 'text-zinc-300' : 'text-gray-700'}`}>{p.ctaSugerido}</p>
+              <div className="w-full">
+                <span className="text-xs font-bold uppercase tracking-widest text-amber-500 mb-1 block">CTA Sugerido</span>
+                {isEditing ? (
+                  <input type="text" value={editData.ctaSugerido ?? ''} onChange={e => setEditData(prev => ({ ...prev, ctaSugerido: e.target.value }))} className={inputClass} placeholder="Call to Action sugerido..." />
+                ) : (
+                  <p className={`text-sm ${isDark ? 'text-zinc-300' : 'text-gray-700'}`}>{p.ctaSugerido}</p>
+                )}
               </div>
-              <button onClick={() => copy(p.ctaSugerido, 'CTA')} className={`p-1 rounded hover:bg-zinc-800 transition-colors ${isDark ? 'text-zinc-500 hover:text-zinc-300' : 'text-gray-400 hover:text-gray-600'}`}>
-                <Copy size={14} />
-              </button>
+              {!isEditing && p.ctaSugerido && (
+                <button onClick={() => copy(p.ctaSugerido, 'CTA')} className={`p-1 rounded hover:bg-zinc-800 transition-colors ${isDark ? 'text-zinc-500 hover:text-zinc-300' : 'text-gray-400 hover:text-gray-600'}`}>
+                  <Copy size={14} />
+                </button>
+              )}
             </div>
           </div>
         )}
@@ -381,6 +444,55 @@ export default function ProspectDetail({ prospect, isDark, onBack, onUpdate, onS
           <p className={`text-sm leading-relaxed ${isDark ? 'text-zinc-300' : 'text-gray-800'}`}>{p.discoveryNote}</p>
         </div>
       )}
+
+      {/* Activity Timeline */}
+      <div className={cardClass}>
+        <div className="flex items-center justify-between mb-6">
+          <h3 className="text-xs font-bold uppercase tracking-widest flex items-center gap-2 text-indigo-500">
+            <Clock size={14} /> Historial de Actividad
+          </h3>
+          <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${isDark ? 'bg-indigo-500/10 text-indigo-400' : 'bg-indigo-100 text-indigo-600'}`}>
+            Conectado a Resend
+          </span>
+        </div>
+        
+        <div className="relative pl-6 border-l-2 ml-3 space-y-8 border-indigo-200 dark:border-indigo-500/30">
+          
+          {emailLogs && emailLogs.length > 0 ? emailLogs.map((log) => (
+            <div key={log._id} className="relative">
+              <div className={`absolute -left-[31px] w-4 h-4 rounded-full border-2 ${isDark ? 'bg-[#18181b] border-indigo-500' : 'bg-white border-indigo-500'}`} />
+              <div>
+                <p className={`text-sm font-semibold mb-1 ${isDark ? 'text-zinc-200' : 'text-gray-900'}`}>{log.subject}</p>
+                <p className={`text-xs mb-2 ${isDark ? 'text-zinc-500' : 'text-gray-500'}`}>{new Date(log.date).toLocaleString()} — Enviado a {log.recipient}</p>
+                <div className={`p-3 rounded-xl border text-sm flex items-center gap-2 font-medium ${isDark ? 'bg-zinc-900/50 border-zinc-800 text-zinc-300' : 'bg-gray-50 border-gray-100 text-gray-700'}`}>
+                  {log.status === 'sent' && '📤 Solicitud Enviada'}
+                  {log.status === 'delivered' && '✅ Entregado al servidor'}
+                  {log.status === 'opened' && '👁️ Abierto / Leído'}
+                  {log.status === 'bounced' && '❌ Rebotado'}
+                  {log.status === 'complaint' && '⚠️ Reportado como Spam'}
+                </div>
+              </div>
+            </div>
+          )) : (
+            <div className="relative">
+              <div className={`absolute -left-[31px] w-4 h-4 rounded-full border-2 ${isDark ? 'bg-[#18181b] border-indigo-500' : 'bg-white border-indigo-500'}`} />
+              <div>
+                <p className={`text-sm font-semibold mb-1 ${isDark ? 'text-zinc-200' : 'text-gray-900'}`}>Sin actividad de email</p>
+                <p className={`text-xs mb-2 ${isDark ? 'text-zinc-500' : 'text-gray-500'}`}>Los correos enviados aparecerán aquí</p>
+              </div>
+            </div>
+          )}
+
+          <div className="relative">
+            <div className={`absolute -left-[31px] w-4 h-4 rounded-full border-2 opacity-50 ${isDark ? 'bg-zinc-800 border-zinc-600' : 'bg-gray-100 border-gray-400'}`} />
+            <div>
+              <p className={`text-sm font-semibold mb-1 opacity-70 ${isDark ? 'text-zinc-400' : 'text-gray-600'}`}>Prospecto Registrado</p>
+              <p className={`text-xs opacity-50 ${isDark ? 'text-zinc-600' : 'text-gray-400'}`}>Fecha de creación: {p.reportDate || 'N/A'}</p>
+            </div>
+          </div>
+
+        </div>
+      </div>
     </div>
   );
 }
