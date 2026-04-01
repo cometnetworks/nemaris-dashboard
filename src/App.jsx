@@ -15,44 +15,32 @@ import Reports from './pages/Reports';
 
 export default function App() {
   const { theme, toggleTheme } = useTheme();
-  const { prospects, addProspects, updateProspect, deleteProspect, deduplicateAll, reportHistory, stats } = useProspects();
+  const { prospects, addProspects, updateProspect, deleteProspect, reportHistory, stats } = useProspects();
   const { meetings, addMeeting, updateMeeting, deleteMeeting, uploadBriefPdf } = useMeetings();
   const [activeTab, setActiveTab] = useState('dashboard');
-  const [selectedProspectId, setSelectedProspectId] = useState(null);
+  const [selectedProspect, setSelectedProspect] = useState(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [prospectFilter, setProspectFilter] = useState('all');
 
   const isDark = theme === 'dark';
 
-  // Derive selected prospect from live data so edits are reflected immediately
-  const selectedProspect = selectedProspectId
-    ? prospects.find(p => p.id === selectedProspectId) || null
-    : null;
-
   const goToProspect = (prospect) => {
-    setSelectedProspectId(prospect.id);
+    setSelectedProspect(prospect);
     setActiveTab('prospect-detail');
   };
 
   const goBack = () => {
-    setSelectedProspectId(null);
+    setSelectedProspect(null);
     setActiveTab('prospects');
   };
 
   const renderPage = () => {
     switch (activeTab) {
       case 'dashboard':
-        return <Dashboard 
-          prospects={prospects} meetings={meetings} stats={stats} isDark={isDark} onViewProspect={goToProspect} 
-          onStatusClick={(status) => {
-            setProspectFilter(status);
-            setActiveTab('prospects');
-          }}
-        />;
+        return <Dashboard prospects={prospects} meetings={meetings} stats={stats} isDark={isDark} onViewProspect={goToProspect} />;
       case 'pipeline':
         return <Pipeline prospects={prospects} isDark={isDark} />;
       case 'prospects':
-        return <Prospects prospects={prospects} isDark={isDark} onSelect={goToProspect} onDelete={deleteProspect} onDeduplicate={deduplicateAll} forcedStatus={prospectFilter} />;
+        return <Prospects prospects={prospects} isDark={isDark} onSelect={goToProspect} onDelete={deleteProspect} />;
       case 'prospect-detail':
         return <ProspectDetail prospect={selectedProspect} isDark={isDark} onBack={goBack} onUpdate={updateProspect} onScheduleMeeting={addMeeting} />;
       case 'opportunities':
@@ -67,16 +55,10 @@ export default function App() {
   };
 
   const getTitle = () => {
-    let prospectsTitle = 'Prospectos';
-    if (activeTab === 'prospects') {
-      if (prospectFilter === 'ready') prospectsTitle = 'En cola para envío';
-      if (prospectFilter === 'pending') prospectsTitle = 'Por Enriquecer';
-    }
-
     const titles = {
       'dashboard': 'Dashboard',
       'pipeline': 'Pipeline',
-      'prospects': prospectsTitle,
+      'prospects': 'Prospectos',
       'prospect-detail': 'Detalle de Prospecto',
       'opportunities': 'Oportunidades',
       'meetings': 'Reuniones',
@@ -102,11 +84,7 @@ export default function App() {
       
       <Sidebar
         activeTab={activeTab}
-        onTabChange={(tab) => { 
-          setActiveTab(tab); 
-          if (tab !== 'prospect-detail') setSelectedProspectId(null); 
-          if (tab === 'prospects') setProspectFilter('all');
-        }}
+        onTabChange={(tab) => { setActiveTab(tab); if (tab !== 'prospect-detail') setSelectedProspect(null); }}
         isDark={isDark}
         onToggleTheme={toggleTheme}
         stats={stats}

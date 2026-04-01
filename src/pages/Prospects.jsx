@@ -1,6 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Search, Filter, ArrowUpRight, Trash2, Layers, CheckCircle, Clock } from 'lucide-react';
-import toast from 'react-hot-toast';
+import { Search, Filter, ArrowUpRight, Trash2 } from 'lucide-react';
 
 const PRIORITY_STYLES = {
   'Alta': { bg: 'bg-red-500/10 text-red-400 border-red-500/20', dot: 'bg-red-500' },
@@ -9,7 +8,7 @@ const PRIORITY_STYLES = {
   'Baja': { bg: 'bg-zinc-500/10 text-zinc-400 border-zinc-500/20', dot: 'bg-zinc-500' },
 };
 
-export default function Prospects({ prospects, isDark, onSelect, onDelete, onDeduplicate, forcedStatus = 'all' }) {
+export default function Prospects({ prospects, isDark, onSelect, onDelete }) {
   const [search, setSearch] = useState('');
   const [priorityFilter, setPriorityFilter] = useState('Todos');
   const [sectorFilter, setSectorFilter] = useState('Todos');
@@ -19,57 +18,20 @@ export default function Prospects({ prospects, isDark, onSelect, onDelete, onDed
 
   const filtered = useMemo(() => {
     return prospects.filter(p => {
-      // 1. Status Filter (from Props)
-      const isEnriched = p.contactName && p.contactEmail;
-      const isReady = isEnriched && p.emailBody;
-
-      if (forcedStatus === 'ready' && !isReady) return false;
-      if (forcedStatus === 'pending' && isEnriched) return false;
-
-      // 2. Local Filters
       const matchesSearch = search === '' || 
-        (p.company || '').toLowerCase().includes(search.toLowerCase()) ||
-        (p.sector || '').toLowerCase().includes(search.toLowerCase()) ||
-        (p.location || '').toLowerCase().includes(search.toLowerCase());
+        p.company.toLowerCase().includes(search.toLowerCase()) ||
+        p.sector.toLowerCase().includes(search.toLowerCase()) ||
+        p.location.toLowerCase().includes(search.toLowerCase());
       const matchesPriority = priorityFilter === 'Todos' || p.priority === priorityFilter;
       const matchesSector = sectorFilter === 'Todos' || p.sector === sectorFilter;
       return matchesSearch && matchesPriority && matchesSector;
-    }).sort((a, b) => (a.company || '').localeCompare(b.company || ''));
-  }, [prospects, search, priorityFilter, sectorFilter, forcedStatus]);
-
-  const handleDelete = async (e, prospect) => {
-    e.stopPropagation();
-    if (!window.confirm(`¿Estás seguro de eliminar a ${prospect.company}?`)) return;
-    try {
-      await onDelete(prospect.id);
-      toast.success(`${prospect.company} eliminado`);
-    } catch (err) {
-      toast.error('Error al eliminar: ' + err.message);
-    }
-  };
-
-  const handleDeduplicate = async () => {
-    if (!window.confirm('¿Fusionar todos los prospectos duplicados? Se conservarán los datos más completos.')) return;
-    try {
-      const result = await onDeduplicate();
-      toast.success(`Deduplicación completa: ${result.deleted} duplicados eliminados, ${result.remaining} prospectos restantes`);
-    } catch (err) {
-      toast.error('Error al deduplicar: ' + err.message);
-    }
-  };
+    }).sort((a, b) => a.company.localeCompare(b.company));
+  }, [prospects, search, priorityFilter, sectorFilter]);
 
   return (
     <div className="space-y-5 max-w-7xl mx-auto animate-fade-in">
       <div className="flex items-center justify-between">
         <p className={`text-sm ${isDark ? 'text-zinc-400' : 'text-gray-500'}`}>{filtered.length} prospectos encontrados</p>
-        <button
-          onClick={handleDeduplicate}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium border transition-colors ${
-            isDark ? 'border-zinc-700 text-zinc-300 hover:bg-zinc-800' : 'border-gray-300 text-gray-700 hover:bg-gray-50'
-          }`}
-        >
-          <Layers size={14} /> Fusionar duplicados
-        </button>
       </div>
 
       {/* Filters */}
@@ -115,7 +77,6 @@ export default function Prospects({ prospects, isDark, onSelect, onDelete, onDed
                 <th className="px-5 py-3.5 font-medium text-xs uppercase tracking-wider">Empresa</th>
                 <th className="px-5 py-3.5 font-medium text-xs uppercase tracking-wider">Ubicación</th>
                 <th className="px-5 py-3.5 font-medium text-xs uppercase tracking-wider">Score</th>
-                <th className="px-5 py-3.5 font-medium text-xs uppercase tracking-wider">Estatus</th>
                 <th className="px-5 py-3.5 font-medium text-xs uppercase tracking-wider">Prioridad</th>
                 <th className="px-5 py-3.5 font-medium text-xs uppercase tracking-wider text-right">Acción</th>
               </tr>
@@ -134,7 +95,7 @@ export default function Prospects({ prospects, isDark, onSelect, onDelete, onDed
                         <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-sm font-bold flex-shrink-0 ${
                           isDark ? 'bg-blue-500/10 text-blue-400' : 'bg-blue-100 text-blue-600'
                         }`}>
-                          {(p.company || 'D').charAt(0)}
+                          {p.company.charAt(0)}
                         </div>
                         <div>
                           <div className="font-semibold">{p.company}</div>
@@ -151,24 +112,6 @@ export default function Prospects({ prospects, isDark, onSelect, onDelete, onDed
                       }`}>{p.score}/100</span>
                     </td>
                     <td className="px-5 py-4">
-                      {p.contactName && p.contactEmail && p.emailBody ? (
-                        <div className="flex items-center gap-1.5 text-green-500">
-                          <ArrowUpRight size={14} />
-                          <span className="text-xs font-medium">Listo</span>
-                        </div>
-                      ) : p.contactName && p.contactEmail ? (
-                        <div className="flex items-center gap-1.5 text-indigo-500">
-                          <CheckCircle size={14} />
-                          <span className="text-xs font-medium">Enriquecido</span>
-                        </div>
-                      ) : (
-                        <div className="flex items-center gap-1.5 text-amber-500">
-                          <Clock size={14} />
-                          <span className="text-xs font-medium">Pendiente</span>
-                        </div>
-                      )}
-                    </td>
-                    <td className="px-5 py-4">
                       <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium border ${pStyle.bg}`}>
                         <span className={`w-1.5 h-1.5 rounded-full ${pStyle.dot}`} />
                         {p.priority}
@@ -177,7 +120,12 @@ export default function Prospects({ prospects, isDark, onSelect, onDelete, onDed
                     <td className="px-5 py-4 text-right">
                       <div className="flex justify-end items-center gap-4">
                         <button
-                          onClick={(e) => handleDelete(e, p)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (window.confirm(`¿Estás seguro de eliminar a ${p.company}?`)) {
+                              onDelete(p.id);
+                            }
+                          }}
                           className={`${isDark ? 'text-zinc-500 hover:text-red-400' : 'text-gray-400 hover:text-red-500'} transition-colors`}
                           title="Eliminar prospecto"
                         >
