@@ -108,7 +108,7 @@ export const sendEmail = action({
       const { data, error } = await resend.emails.send({
         from: "Nemaris <nemaris@outreach.voxmedia.com.mx>",
         to: [args.recipient],
-        reply_to: "voxmedia.projects@voxmedia.com.mx",
+        replyTo: "voxmedia.projects@voxmedia.agency",
         subject: args.subject,
         html: args.body.replace(/\n/g, "<br>"),
       });

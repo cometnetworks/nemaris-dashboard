@@ -7,6 +7,7 @@ export function useProspects() {
   const upsertMany = useMutation(api.prospects.upsertMany);
   const updateProspect = useMutation(api.prospects.update);
   const removeProspect = useMutation(api.prospects.remove);
+  const deduplicateAllMutation = useMutation(api.prospects.deduplicateAll);
   const addReport = useMutation(api.reports.add);
 
   // Map Convex docs to the shape the app expects (use _id as id, keep prospectId)
@@ -69,17 +70,29 @@ export function useProspects() {
 
   const handleDeleteProspect = async (id) => {
     const doc = convexProspects.find(p => p.prospectId === id);
-    if (doc) {
-      await removeProspect({ id: doc._id });
+    if (!doc) {
+      throw new Error('Prospecto no encontrado');
     }
+    await removeProspect({ id: doc._id });
   };
+
+  const deduplicateAll = async () => {
+    return await deduplicateAllMutation();
+  };
+
+  const enrichedCount = prospects.filter(p => p.contactName && p.contactEmail).length;
+  const readyToSendCount = prospects.filter(p => p.contactName && p.contactEmail && p.emailBody).length;
+  const pendingEnrichmentCount = prospects.length - enrichedCount;
 
   const stats = {
     total: prospects.length,
-    avgScore: Math.round(prospects.reduce((a, b) => a + b.score, 0) / (prospects.length || 1)),
+    avgScore: Math.round(prospects.reduce((a, b) => a + (b.score || 0), 0) / (prospects.length || 1)),
     highPriority: prospects.filter(p => p.priority === 'Alta').length,
     sectors: [...new Set(prospects.map(p => p.sector))].length,
+    enriched: enrichedCount,
+    readyToSend: readyToSendCount,
+    pendingEnrichment: pendingEnrichmentCount
   };
 
-  return { prospects, addProspects, updateProspect: handleUpdateProspect, deleteProspect: handleDeleteProspect, reportHistory, stats };
+  return { prospects, addProspects, updateProspect: handleUpdateProspect, deleteProspect: handleDeleteProspect, deduplicateAll, reportHistory, stats };
 }
