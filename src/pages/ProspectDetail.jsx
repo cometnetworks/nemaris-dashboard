@@ -25,6 +25,9 @@ export default function ProspectDetail({ prospect, isDark, onBack, onUpdate, onS
       contactPhotoUrl: prospect.contactPhotoUrl || '',
       company: prospect.company,
       notes: prospect.notes || '',
+      emailSubject: prospect.emailSubject || '',
+      emailBody: prospect.emailBody || '',
+      followUpEmail: prospect.followUpEmail || '',
     });
     setIsEditing(true);
   };
@@ -350,39 +353,70 @@ export default function ProspectDetail({ prospect, isDark, onBack, onUpdate, onS
           <div className="lg:col-span-2">
             <div className="flex justify-between items-center mb-1.5">
               <span className={`text-xs ${isDark ? 'text-zinc-500' : 'text-gray-400'}`}>Asunto sugerido</span>
-              <button onClick={() => copy(p.emailSubject, 'Asunto')} className={`p-1 rounded hover:bg-zinc-800 transition-colors ${isDark ? 'text-zinc-500 hover:text-zinc-300' : 'text-gray-400 hover:text-gray-600'}`}>
-                <Copy size={14} />
-              </button>
+              {!isEditing && (
+                <button onClick={() => copy(p.emailSubject, 'Asunto')} className={`p-1 rounded hover:bg-zinc-800 transition-colors ${isDark ? 'text-zinc-500 hover:text-zinc-300' : 'text-gray-400 hover:text-gray-600'}`}>
+                  <Copy size={14} />
+                </button>
+              )}
             </div>
-            <div className={`p-3 rounded-xl text-sm font-medium ${isDark ? 'bg-zinc-900 border border-zinc-800' : 'bg-gray-50 border border-gray-200'}`}>
-              {p.emailSubject}
-            </div>
+            {isEditing ? (
+              <input 
+                type="text" 
+                value={editData.emailSubject} 
+                onChange={e => setEditData(prev => ({ ...prev, emailSubject: e.target.value }))} 
+                className={inputClass} 
+              />
+            ) : (
+              <div className={`p-3 rounded-xl text-sm font-medium ${isDark ? 'bg-zinc-900 border border-zinc-800' : 'bg-gray-50 border border-gray-200'}`}>
+                {p.emailSubject}
+              </div>
+            )}
           </div>
 
           {/* Email Body */}
           <div>
             <div className="flex justify-between items-center mb-1.5">
               <span className={`text-xs ${isDark ? 'text-zinc-500' : 'text-gray-400'}`}>Email inicial</span>
-              <button onClick={() => copy(p.emailBody, 'Email')} className={`p-1 rounded hover:bg-zinc-800 transition-colors ${isDark ? 'text-zinc-500 hover:text-zinc-300' : 'text-gray-400 hover:text-gray-600'}`}>
-                <Copy size={14} />
-              </button>
+              {!isEditing && (
+                <button onClick={() => copy(p.emailBody, 'Email')} className={`p-1 rounded hover:bg-zinc-800 transition-colors ${isDark ? 'text-zinc-500 hover:text-zinc-300' : 'text-gray-400 hover:text-gray-600'}`}>
+                  <Copy size={14} />
+                </button>
+              )}
             </div>
-            <div className={`p-4 rounded-xl text-sm whitespace-pre-wrap leading-relaxed ${isDark ? 'bg-zinc-900 border border-zinc-800 text-zinc-300' : 'bg-gray-50 border border-gray-200 text-gray-700'}`}>
-              {p.emailBody}
-            </div>
+            {isEditing ? (
+              <textarea 
+                value={editData.emailBody} 
+                onChange={e => setEditData(prev => ({ ...prev, emailBody: e.target.value }))} 
+                className={`${inputClass} min-h-[250px] resize-y`} 
+              />
+            ) : (
+              <div className={`p-4 rounded-xl text-sm whitespace-pre-wrap leading-relaxed ${isDark ? 'bg-zinc-900 border border-zinc-800 text-zinc-300' : 'bg-gray-50 border border-gray-200 text-gray-700'}`}>
+                {p.emailBody}
+              </div>
+            )}
           </div>
 
           {/* Follow-up */}
           <div>
             <div className="flex justify-between items-center mb-1.5">
               <span className={`text-xs ${isDark ? 'text-zinc-500' : 'text-gray-400'}`}>Follow-up</span>
-              <button onClick={() => copy(p.followUpEmail || '', 'Follow-up')} className={`p-1 rounded hover:bg-zinc-800 transition-colors ${isDark ? 'text-zinc-500 hover:text-zinc-300' : 'text-gray-400 hover:text-gray-600'}`}>
-                <Copy size={14} />
-              </button>
+              {!isEditing && (
+                <button onClick={() => copy(p.followUpEmail || '', 'Follow-up')} className={`p-1 rounded hover:bg-zinc-800 transition-colors ${isDark ? 'text-zinc-500 hover:text-zinc-300' : 'text-gray-400 hover:text-gray-600'}`}>
+                  <Copy size={14} />
+                </button>
+              )}
             </div>
-            <div className={`p-4 rounded-xl text-sm whitespace-pre-wrap leading-relaxed ${isDark ? 'bg-zinc-900 border border-zinc-800 text-zinc-300' : 'bg-gray-50 border border-gray-200 text-gray-700'}`}>
-              {p.followUpEmail || 'No disponible'}
-            </div>
+            {isEditing ? (
+              <textarea 
+                value={editData.followUpEmail} 
+                onChange={e => setEditData(prev => ({ ...prev, followUpEmail: e.target.value }))} 
+                className={`${inputClass} min-h-[250px] resize-y`} 
+              />
+            ) : (
+              <div className={`p-4 rounded-xl text-sm whitespace-pre-wrap leading-relaxed ${isDark ? 'bg-zinc-900 border border-zinc-800 text-zinc-300' : 'bg-gray-50 border border-gray-200 text-gray-700'}`}>
+                {p.followUpEmail || 'No disponible'}
+              </div>
+            )}
           </div>
         </div>
 
