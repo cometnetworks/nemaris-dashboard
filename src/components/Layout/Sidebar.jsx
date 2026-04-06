@@ -1,7 +1,7 @@
 import React from 'react';
 import {
   LayoutDashboard, Activity, Users, Target, Calendar, FileText,
-  Sun, Moon, ChevronLeft, ChevronRight
+  Sun, Moon, ChevronLeft, ChevronRight, Mail
 } from 'lucide-react';
 
 const navItems = [
@@ -11,6 +11,7 @@ const navItems = [
   { id: 'opportunities', label: 'Oportunidades', icon: Target },
   { id: 'meetings', label: 'Reuniones', icon: Calendar },
   { id: 'reports', label: 'Reportes', icon: FileText },
+  { id: 'email-tracking', label: 'Seguimiento', icon: Mail },
 ];
 
 export default function Sidebar({ activeTab, onTabChange, isDark, onToggleTheme, stats, collapsed, onToggleCollapse, latestReportDate }) {

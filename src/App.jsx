@@ -12,6 +12,7 @@ import ProspectDetail from './pages/ProspectDetail';
 import Opportunities from './pages/Opportunities';
 import Meetings from './pages/Meetings';
 import Reports from './pages/Reports';
+import EmailTracking from './pages/EmailTracking';
 
 export default function App() {
   const { theme, toggleTheme } = useTheme();
@@ -61,6 +62,8 @@ export default function App() {
         return <Meetings meetings={meetings} isDark={isDark} onAdd={addMeeting} onUpdate={updateMeeting} onDelete={deleteMeeting} uploadBriefPdf={uploadBriefPdf} />;
       case 'reports':
         return <Reports isDark={isDark} reportHistory={reportHistory} onDataExtracted={addProspects} />;
+      case 'email-tracking':
+        return <EmailTracking isDark={isDark} />;
       default:
         return <Dashboard prospects={prospects} meetings={meetings} stats={stats} isDark={isDark} onViewProspect={goToProspect} />;
     }
@@ -81,6 +84,7 @@ export default function App() {
       'opportunities': 'Oportunidades',
       'meetings': 'Reuniones',
       'reports': 'Reportes',
+      'email-tracking': 'Control de Envíos',
     };
     return titles[activeTab] || 'Dashboard';
   };

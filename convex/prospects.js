@@ -95,8 +95,14 @@ function mergeProspects(existing, incoming) {
   for (const field of fields) {
     const existingVal = existing[field] || '';
     const incomingVal = incoming[field] || '';
-    // Keep the longer/more detailed value
-    merged[field] = incomingVal.length > existingVal.length ? incomingVal : existingVal;
+    
+    // Protection for manual email edits: if already exists, don't overwrite if it looks like a re-generation
+    if (['emailSubject', 'emailBody', 'followUpEmail'].includes(field) && existingVal.length > 0) {
+      merged[field] = existingVal;
+    } else {
+      // Keep the longer/more detailed value for other fields
+      merged[field] = incomingVal.length > existingVal.length ? incomingVal : existingVal;
+    }
   }
 
   // Score: keep the higher score

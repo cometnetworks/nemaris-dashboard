@@ -21,10 +21,10 @@ export default function ProspectDetail({ prospect, isDark, onBack, onUpdate, onS
       contactName: prospect.contactName || '',
       contactTitle: prospect.contactTitle || '',
       contactEmail: prospect.contactEmail || '',
-      linkedinUrl: prospect.linkedinUrl || (prospect.linkedinLinks?.[0]?.url || ''),
+      contactLinkedin: prospect.contactLinkedin || (prospect.linkedinLinks?.[0]?.url || ''),
       contactPhotoUrl: prospect.contactPhotoUrl || '',
       company: prospect.company,
-      notes: prospect.notes || '',
+      customNotes: prospect.customNotes || '',
       emailSubject: prospect.emailSubject || '',
       emailBody: prospect.emailBody || '',
       followUpEmail: prospect.followUpEmail || '',
@@ -32,10 +32,15 @@ export default function ProspectDetail({ prospect, isDark, onBack, onUpdate, onS
     setIsEditing(true);
   };
 
-  const saveEdit = () => {
-    onUpdate(prospect.id, editData);
-    setIsEditing(false);
-    toast.success('Prospecto actualizado');
+  const saveEdit = async () => {
+    toast.loading('Guardando...', { id: 'save-prospect' });
+    try {
+      await onUpdate(prospect.id, editData);
+      setIsEditing(false);
+      toast.success('Prospecto actualizado', { id: 'save-prospect' });
+    } catch (e) {
+      toast.error('Error al guardar: ' + e.message, { id: 'save-prospect' });
+    }
   };
 
   const cancelEdit = () => {
@@ -157,11 +162,11 @@ export default function ProspectDetail({ prospect, isDark, onBack, onUpdate, onS
             </div>
             <div>
               <label className={`block text-xs mb-1.5 font-medium ${isDark ? 'text-zinc-400' : 'text-gray-600'}`}>LinkedIn (URL correcta)</label>
-              <input type="url" value={editData.linkedinUrl} onChange={e => setEditData(prev => ({ ...prev, linkedinUrl: e.target.value }))} className={inputClass} placeholder="https://www.linkedin..." />
+              <input type="url" value={editData.contactLinkedin} onChange={e => setEditData(prev => ({ ...prev, contactLinkedin: e.target.value }))} className={inputClass} placeholder="https://www.linkedin..." />
             </div>
             <div>
               <label className={`block text-xs mb-1.5 font-medium ${isDark ? 'text-zinc-400' : 'text-gray-600'}`}>Notas personales</label>
-              <input type="text" value={editData.notes} onChange={e => setEditData(prev => ({ ...prev, notes: e.target.value }))} className={inputClass} placeholder="Notas adicionales..." />
+              <input type="text" value={editData.customNotes} onChange={e => setEditData(prev => ({ ...prev, customNotes: e.target.value }))} className={inputClass} placeholder="Notas adicionales..." />
             </div>
           </div>
         )}
@@ -186,8 +191,8 @@ export default function ProspectDetail({ prospect, isDark, onBack, onUpdate, onS
                     <h4 className={`text-xl font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>{p.contactName || 'Sin Nombre'}</h4>
                     {p.contactTitle && <p className={`text-md font-medium mt-0.5 ${isDark ? 'text-zinc-400' : 'text-gray-600'}`}>{p.contactTitle}</p>}
                   </div>
-                  {p.linkedinUrl && (
-                    <a href={p.linkedinUrl} target="_blank" rel="noreferrer" className={`flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg transition-colors flex-shrink-0 ${isDark ? 'bg-blue-500/10 text-blue-400 hover:bg-blue-500/20' : 'bg-blue-50 text-blue-600 hover:bg-blue-100'}`}>
+                  {p.contactLinkedin && (
+                    <a href={p.contactLinkedin} target="_blank" rel="noreferrer" className={`flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg transition-colors flex-shrink-0 ${isDark ? 'bg-blue-500/10 text-blue-400 hover:bg-blue-500/20' : 'bg-blue-50 text-blue-600 hover:bg-blue-100'}`}>
                       <ExternalLink size={12} /> LinkedIn
                     </a>
                   )}
@@ -294,8 +299,8 @@ export default function ProspectDetail({ prospect, isDark, onBack, onUpdate, onS
               <span className="font-semibold block mb-2">Decisor principal</span>
               <span className={isDark ? 'text-zinc-300' : 'text-gray-700'}>{p.deciders}</span>
             </div>
-            {p.linkedinUrl ? (
-              <a href={p.linkedinUrl} target="_blank" rel="noreferrer"
+            {p.contactLinkedin ? (
+              <a href={p.contactLinkedin} target="_blank" rel="noreferrer"
                 className={`mt-3 flex items-center gap-2 text-sm px-3 py-2 rounded-lg transition-colors ${isDark ? 'hover:bg-zinc-900 text-blue-400' : 'hover:bg-gray-50 text-blue-600'}`}
               >
                 <ExternalLink size={14} /> Ver en LinkedIn

@@ -28,6 +28,9 @@ export default defineSchema({
     contactLinkedin: v.optional(v.string()),
     contactPhotoUrl: v.optional(v.string()),
     customNotes: v.optional(v.string()),
+    // Email tracking
+    emailSent: v.optional(v.boolean()),
+    lastEmailSentDate: v.optional(v.string()),
   }).index("by_prospectId", ["prospectId"]),
 
   meetings: defineTable({

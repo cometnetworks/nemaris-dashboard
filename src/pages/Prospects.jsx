@@ -13,20 +13,25 @@ export default function Prospects({ prospects, isDark, onSelect, onDelete, onDed
   const [search, setSearch] = useState('');
   const [priorityFilter, setPriorityFilter] = useState('Todos');
   const [sectorFilter, setSectorFilter] = useState('Todos');
+  const [activeTab, setActiveTab] = useState('Pendientes');
 
   const sectors = useMemo(() => ['Todos', ...new Set(prospects.map(p => p.sector))], [prospects]);
   const priorities = ['Todos', 'Alta', 'Media-Alta', 'Media', 'Baja'];
 
   const filtered = useMemo(() => {
     return prospects.filter(p => {
-      // 1. Status Filter (from Props)
+      // 1. Tab Filter
+      if (activeTab === 'Pendientes' && p.emailSent) return false;
+      if (activeTab === 'Enviados' && !p.emailSent) return false;
+
+      // 2. Status Filter (legacy support/other views)
       const isEnriched = p.contactName && p.contactEmail;
       const isReady = isEnriched && p.emailBody;
 
       if (forcedStatus === 'ready' && !isReady) return false;
       if (forcedStatus === 'pending' && isEnriched) return false;
 
-      // 2. Local Filters
+      // 3. Local Filters
       const matchesSearch = search === '' || 
         (p.company || '').toLowerCase().includes(search.toLowerCase()) ||
         (p.sector || '').toLowerCase().includes(search.toLowerCase()) ||
@@ -34,8 +39,14 @@ export default function Prospects({ prospects, isDark, onSelect, onDelete, onDed
       const matchesPriority = priorityFilter === 'Todos' || p.priority === priorityFilter;
       const matchesSector = sectorFilter === 'Todos' || p.sector === sectorFilter;
       return matchesSearch && matchesPriority && matchesSector;
-    }).sort((a, b) => (a.company || '').localeCompare(b.company || ''));
-  }, [prospects, search, priorityFilter, sectorFilter, forcedStatus]);
+    }).sort((a, b) => {
+      // If in "Enviados", sort by date descending
+      if (activeTab === 'Enviados' && a.lastEmailSentDate && b.lastEmailSentDate) {
+        return b.lastEmailSentDate.localeCompare(a.lastEmailSentDate);
+      }
+      return (a.company || '').localeCompare(b.company || '');
+    });
+  }, [prospects, search, priorityFilter, sectorFilter, forcedStatus, activeTab]);
 
   const handleDelete = async (e, prospect) => {
     e.stopPropagation();
@@ -60,16 +71,33 @@ export default function Prospects({ prospects, isDark, onSelect, onDelete, onDed
 
   return (
     <div className="space-y-5 max-w-7xl mx-auto animate-fade-in">
-      <div className="flex items-center justify-between">
-        <p className={`text-sm ${isDark ? 'text-zinc-400' : 'text-gray-500'}`}>{filtered.length} prospectos encontrados</p>
-        <button
-          onClick={handleDeduplicate}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium border transition-colors ${
-            isDark ? 'border-zinc-700 text-zinc-300 hover:bg-zinc-800' : 'border-gray-300 text-gray-700 hover:bg-gray-50'
-          }`}
-        >
-          <Layers size={14} /> Fusionar duplicados
-        </button>
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="flex items-center gap-1 p-1 bg-zinc-100 dark:bg-zinc-900/50 rounded-2xl w-fit border border-gray-200 dark:border-zinc-800">
+          {['Pendientes', 'Enviados', 'Todos'].map((tab) => (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={`px-5 py-2 rounded-xl text-xs font-bold transition-all ${
+                activeTab === tab
+                  ? 'bg-white dark:bg-zinc-800 text-blue-600 dark:text-blue-400 shadow-sm ring-1 ring-black/5'
+                  : 'text-gray-500 hover:text-gray-700 dark:text-zinc-500 dark:hover:text-zinc-300'
+              }`}
+            >
+              {tab}
+            </button>
+          ))}
+        </div>
+        <div className="flex items-center gap-4">
+          <p className={`text-sm ${isDark ? 'text-zinc-400' : 'text-gray-500'}`}>{filtered.length} prospectos</p>
+          <button
+            onClick={handleDeduplicate}
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium border transition-colors ${
+              isDark ? 'border-zinc-700 text-zinc-300 hover:bg-zinc-800' : 'border-gray-300 text-gray-700 hover:bg-gray-50'
+            }`}
+          >
+            <Layers size={14} /> Fusionar duplicados
+          </button>
+        </div>
       </div>
 
       {/* Filters */}

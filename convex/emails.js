@@ -31,6 +31,15 @@ export const getLogsForProspect = query({
   },
 });
 
+export const getAllLogs = query({
+  args: {},
+  handler: async (ctx) => {
+    return await ctx.db
+      .query("emailLogs")
+      .collect();
+  },
+});
+
 export const logEmailSent = mutation({
   args: {
     prospectId: v.string(),
@@ -60,6 +69,19 @@ export const logEmailSent = mutation({
       resendId: args.resendId,
       date: new Date().toISOString(),
     });
+
+    // Update prospect status
+    const prospect = await ctx.db
+      .query("prospects")
+      .withIndex("by_prospectId", (q) => q.eq("prospectId", args.prospectId))
+      .first();
+    
+    if (prospect) {
+      await ctx.db.patch(prospect._id, {
+        emailSent: true,
+        lastEmailSentDate: new Date().toISOString(),
+      });
+    }
     
     return logId;
   },
