@@ -22,7 +22,7 @@ fi
 
 # 2. Convex Backend
 echo "💾 Paso 2: Desplegando backend a Convex (Producción)..."
-npx convex deploy -y
+CONVEX_DEPLOYMENT=next-swan-708 npx convex deploy -y
 
 # 3. Build y Cloudflare Frontend
 echo "🏗️ Paso 3: Construyendo y desplegando a Cloudflare Pages..."
